@@ -35,6 +35,16 @@ nav,
   display: flex;
 }
 
+#desktop-nav {
+  background-color: #2C3E50; /* Dark blue background for the nav bar */
+  border-radius: 1rem; /* Rounded corners for the nav bar */
+  margin: 1.5rem 5rem; /* Margin around the nav bar to lift it from edges */
+  height: 8vh; /* Reduced height to match the image's appearance */
+  justify-content: space-around; /* Keeps elements spaced out */
+  align-items: center; /* Vertically centers elements */
+  padding: 0 2rem; /* Internal padding */
+}
+
 nav {
   justify-content: space-around;
   align-items: center;
@@ -47,21 +57,23 @@ nav {
   font-size: 1.5rem;
 }
 
-a {
-  color: black;
+#desktop-nav .nav-links a {
+  font-size: 1.25rem; /* Font size for navigation links */
+  color: #ECF0F1; /* Light text color for navigation links */
   text-decoration: none;
-  text-decoration-color: white;
+  text-decoration-color: transparent; /* Ensure no initial underline */
 }
 
-a:hover {
-  color: grey;
+#desktop-nav .nav-links a:hover {
+  color: #A7D9F7; /* Lighter blue on hover */
   text-decoration: underline;
   text-underline-offset: 1rem;
-  text-decoration-color: rgb(181, 181, 181);
+  text-decoration-color: #A7D9F7; /* Underline color matches hover text */
 }
 
 .logo {
-  font-size: 2rem;
+  font-size: 1.5rem;
+  color: #ECF0F1; 
 }
 
 .logo:hover {
@@ -180,8 +192,13 @@ section {
 }
 
 #socials-container .icon {
-  width: 2rem; /* Consistent with contact icons */
-  height: 2rem;
+  width: 2.5rem; /* Consistent with contact icons */
+  height: 2.5rem;
+}
+
+#socials-container .icon[src="./assets/facebook.png"] {
+  width: 3rem; /* Set to the same size for now, but can be changed independently */
+  height: 3rem;
 }
 
 .section__text {
@@ -208,7 +225,7 @@ section {
   display: flex;
   justify-content: center;
   margin-top: 1rem;
-  gap: 1rem;
+  gap: 3rem;
 }
 
 /* BUTTONS */
@@ -216,7 +233,7 @@ section {
 .btn-container {
   display: flex;
   justify-content: center;
-  gap: 1rem;
+  gap: 2rem;
 }
 
 .btn {
@@ -263,6 +280,8 @@ section {
 
 #about {
   position: relative;
+  background: linear-gradient(to bottom right, #ECF0F1 65%, #2C3E50 35%);
+  height: fit-content
 }
 
 .about-containers {
@@ -419,22 +438,63 @@ article .icon {
 
 .contact-icon {
   cursor: default;
+  height: 2.5rem;
 }
 
 .email-icon {
-  height: 2.5rem;
+  height: 3rem;
 }
 
 /* FOOTER */
 
 footer {
-  height: 26vh;
-  margin: 0 1rem;
-  color: rgb(85, 85, 85);
+  /* Applying similar styles to the desktop nav bar for the footer */
+  background-color: #2C3E50; /* Dark blue background */
+  border-radius: 1rem; /* Rounded corners */
+  margin: 1.5rem 5rem; /* Margin to lift it from edges */
+  height: fit-content; /* Adjust height based on content */
+  padding: 1.5rem 2rem; /* Increased padding for better spacing */
+  display: flex; /* Use flexbox for internal alignment */
+  flex-direction: column; /* Stack children vertically */
+  justify-content: center; /* Center content vertically */
+  align-items: center; /* Center content horizontally */
+  gap: 1rem; /* Space between nav links and copyright */
+  color: #ECF0F1; /* Light text color for copyright */
+}
+
+/* Styling for the navigation links within the footer */
+footer nav {
+  height: fit-content;
+  margin-bottom: 0; /* Remove default margin */
+  width: 100%; /* Take full width of footer */
+  justify-content: center; /* Center the links */
+  align-items: center;
+}
+
+footer .nav-links {
+  gap: 2rem; /* Space between footer links */
+  list-style: none;
+  font-size: 1.25rem; /* Slightly smaller font for footer links */
+}
+
+footer .nav-links a {
+  color: #ECF0F1; /* Light text color for footer navigation links */
+  text-decoration: none;
+  text-decoration-color: transparent;
+}
+
+footer .nav-links a:hover {
+  color: #A7D9F7; /* Lighter blue on hover */
+  text-decoration: underline;
+  text-underline-offset: 0.5rem; /* Smaller underline offset for footer */
+  text-decoration-color: #A7D9F7;
 }
 
 footer p {
   text-align: center;
+  margin: 0; /* Remove default margin */
+  font-size: 0.9rem; /* Smaller font for copyright text */
+  color: #B0BEC5; /* Slightly muted light color for copyright */
 }
 
 /* MEDIA QUERIES (from original mediaqueries.css, integrated here) */
@@ -466,6 +526,19 @@ footer p {
   }
   .about-containers {
     margin-top: 0;
+  }
+
+  footer {
+    margin: 1rem 2%; /* Smaller margin for mobile */
+    border-radius: 0.75rem;
+    padding: 1rem;
+  }
+  footer .nav-links {
+    gap: 1rem;
+    font-size: 1rem;
+  }
+  footer p {
+    font-size: 0.8rem;
   }
 }
 
@@ -521,5 +594,13 @@ footer p {
   }
   .text-container {
     text-align: justify;
+  }
+
+  footer nav {
+    flex-direction: column; /* Stack links vertically */
+  }
+  footer .nav-links {
+    flex-direction: column; /* Ensure links stack if they wrap */
+    gap: 0.5rem;
   }
 }
