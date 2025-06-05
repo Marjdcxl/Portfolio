@@ -360,10 +360,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
                             $alt_text = 'Phone icon';
                             $link_prefix = 'tel:';
                             break;
-                        case 'Facebook':
-                            $icon_src = './assets/facebook.png'; // Assuming you have a facebook icon
-                            $alt_text = 'Facebook icon';
-                            break;
                         default:
                             $icon_src = './assets/link.png'; // Generic link icon
                             $alt_text = 'Link icon';
