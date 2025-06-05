@@ -9,6 +9,8 @@
 
 body {
   font-family: "Poppins", sans-serif;
+  /* Added the diagonal background gradient as requested */
+  background: linear-gradient(to bottom right, #f8faff, #d9e7ff, #b5c7ed, #8ea5d4, #667ebf);
 }
 
 html {
