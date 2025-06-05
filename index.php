@@ -160,6 +160,12 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
             class="icon"
             onclick="location.href='https://github.com/'"
           />
+          <img
+            src="./assets/facebook.png"
+            alt="My Facebook profile"
+            class="icon"
+            onclick="location.href='https://www.facebook.com/BJ.Juabot14'"
+          />
         </div>
       </div>
     </section>
@@ -285,7 +291,8 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
                             src="<?= htmlspecialchars($project['image_url']) ?>"
                             alt="<?= htmlspecialchars($project['title']) ?>"
                             class="project-img"
-                            onerror="this.onerror=null;this.src='https://placehold.co/400x300/e0e0e0/000000?text=No+Image';"
+                            onerror="this.onerror=null;this.src='https://placehold.co/400x300/e0e0e0/000000?text=No+Image'"
+                            alt="No image available" <!-- Assuming placeholder.png is a valid placeholder image -->
                           />
                       <?php else: ?>
                           <img
