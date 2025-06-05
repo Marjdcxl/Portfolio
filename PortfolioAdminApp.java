@@ -4,10 +4,14 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.border.SoftBevelBorder; // For button effects
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter; // For button hover effects
+import java.awt.event.MouseEvent;   // For button hover effects
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -17,6 +21,123 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 import java.util.Base64;
 import javax.imageio.ImageIO;
+import java.awt.geom.Point2D; // For GradientPaint
+
+/**
+ * Custom JPanel for drawing a linear gradient background.
+ */
+class GradientPanel extends JPanel {
+    private Color color1;
+    private Color color2;
+    private boolean horizontal;
+
+    /**
+     * Constructs a GradientPanel with two colors and an orientation.
+     * @param c1 The starting color of the gradient.
+     * @param c2 The ending color of the gradient.
+     * @param horizontal True for a horizontal gradient, false for a vertical gradient.
+     */
+    public GradientPanel(Color c1, Color c2, boolean horizontal) {
+        this.color1 = c1;
+        this.color2 = c2;
+        this.horizontal = horizontal;
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2d = (Graphics2D) g;
+        // Improve rendering quality for gradients
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        int w = getWidth();
+        int h = getHeight();
+
+        GradientPaint gp;
+        if (horizontal) {
+            // Horizontal gradient from left to right
+            gp = new GradientPaint(0, 0, color1, w, 0, color2);
+        } else {
+            // Vertical gradient from top to bottom
+            gp = new GradientPaint(0, 0, color1, 0, h, color2);
+        }
+        g2d.setPaint(gp);
+        g2d.fillRect(0, 0, w, h);
+    }
+}
+
+/**
+ * Custom JButton that supports gradient backgrounds and hover effects.
+ */
+class GradientButton extends JButton {
+    private Color startColor;
+    private Color endColor;
+    private Color hoverStartColor;
+    private Color hoverEndColor;
+    private boolean hovered = false;
+
+    /**
+     * Constructs a GradientButton with specified text, normal gradient colors, and hover gradient colors.
+     * @param text The text to display on the button.
+     * @param start The starting color of the normal gradient.
+     * @param end The ending color of the normal gradient.
+     * @param hoverStart The starting color of the hover gradient.
+     * @param hoverEnd The ending color of the hover gradient.
+     */
+    public GradientButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd) {
+        super(text);
+        this.startColor = start;
+        this.endColor = end;
+        this.hoverStartColor = hoverStart;
+        this.hoverEndColor = hoverEnd;
+
+        setFont(PortfolioAdminApp.FONT_BUTTON);
+        setForeground(Color.WHITE);
+        setFocusPainted(false);
+        setContentAreaFilled(false); // Don't fill content area, we'll paint it
+        setBorderPainted(false); // We'll use a custom border
+        setOpaque(false); // Make it opaque for custom painting
+        setCursor(new Cursor(Cursor.HAND_CURSOR));
+        // Add a compound border for padding and a subtle bevel effect
+        setBorder(BorderFactory.createCompoundBorder(
+                new SoftBevelBorder(SoftBevelBorder.RAISED, new Color(220, 220, 220, 80), new Color(80, 80, 80, 80)), // Softer bevel
+                new EmptyBorder(10, 20, 10, 20) // Default padding
+        ));
+        putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific for rounded corners
+
+        // Add mouse listeners for hover effect
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent evt) {
+                hovered = true;
+                repaint(); // Repaint to show hover gradient
+            }
+
+            @Override
+            public void mouseExited(MouseEvent evt) {
+                hovered = false;
+                repaint(); // Repaint to show normal gradient
+            }
+        });
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        Graphics2D g2d = (Graphics2D) g.create();
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON); // Anti-aliasing for smooth edges
+        GradientPaint gp;
+        if (hovered) {
+            gp = new GradientPaint(0, 0, hoverStartColor, 0, getHeight(), hoverEndColor);
+        } else {
+            gp = new GradientPaint(0, 0, startColor, 0, getHeight(), endColor);
+        }
+        g2d.setPaint(gp);
+        g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20); // Rounded corners for the filled area
+        g2d.dispose();
+        super.paintComponent(g); // Paint text and icon on top of the gradient
+    }
+}
+
 
 /**
  * Main class for the Portfolio Admin GUI application.
@@ -28,6 +149,60 @@ public class PortfolioAdminApp extends JFrame {
 
     private CardLayout cardLayout;
     private JPanel mainPanel;
+
+    // --- Global Design Constants ---
+    // Colors (Vibrant, professional palette with defined gradient steps)
+    public static final Color PRIMARY_BLUE = new Color(0, 123, 255); // Vibrant Royal Blue
+    public static final Color ACCENT_GREEN = new Color(40, 167, 69);   // Vibrant Green
+    public static final Color ACCENT_RED = new Color(220, 53, 69);     // Vibrant Red
+    public static final Color ACCENT_ORANGE = new Color(255, 193, 7);  // Vibrant Amber/Orange
+    public static final Color NEUTRAL_GREY = new Color(108, 117, 125);  // Medium Grey for secondary actions
+    public static final Color ACCENT_CYAN = new Color(23, 162, 184); // Cyan for restore button
+
+    // Defined gradient start/end colors for buttons (normal state)
+    public static final Color GRADIENT_PRIMARY_BLUE_START = new Color(52, 152, 219); // Brighter blue
+    public static final Color GRADIENT_PRIMARY_BLUE_END = new Color(41, 128, 185);   // Deeper blue
+    public static final Color GRADIENT_ACCENT_GREEN_START = new Color(46, 204, 113); // Brighter green
+    public static final Color GRADIENT_ACCENT_GREEN_END = new Color(39, 174, 96);   // Deeper green
+    public static final Color GRADIENT_ACCENT_RED_START = new Color(231, 76, 60);   // Brighter red
+    public static final Color GRADIENT_ACCENT_RED_END = new Color(192, 57, 43);     // Deeper red
+    public static final Color GRADIENT_ACCENT_ORANGE_START = new Color(243, 156, 18); // Brighter orange
+    public static final Color GRADIENT_ACCENT_ORANGE_END = new Color(211, 84, 0);   // Deeper orange
+    public static final Color GRADIENT_NEUTRAL_GREY_START = new Color(189, 195, 199); // Brighter grey
+    public static final Color GRADIENT_NEUTRAL_GREY_END = new Color(127, 140, 141);   // Deeper grey
+    public static final Color GRADIENT_ACCENT_CYAN_START = new Color(26, 188, 156);  // Brighter cyan
+    public static final Color GRADIENT_ACCENT_CYAN_END = new Color(22, 160, 133);    // Deeper cyan
+
+    // Defined gradient start/end colors for buttons (hover state - slightly brighter/more intense)
+    public static final Color GRADIENT_PRIMARY_BLUE_HOVER_START = new Color(74, 169, 240);
+    public static final Color GRADIENT_PRIMARY_BLUE_HOVER_END = new Color(63, 143, 200);
+    public static final Color GRADIENT_ACCENT_GREEN_HOVER_START = new Color(68, 226, 135);
+    public static final Color GRADIENT_ACCENT_GREEN_HOVER_END = new Color(58, 196, 118);
+    public static final Color GRADIENT_ACCENT_RED_HOVER_START = new Color(255, 98, 82);
+    public static final Color GRADIENT_ACCENT_RED_HOVER_END = new Color(212, 79, 65);
+    public static final Color GRADIENT_ACCENT_ORANGE_HOVER_START = new Color(255, 178, 40);
+    public static final Color GRADIENT_ACCENT_ORANGE_HOVER_END = new Color(231, 106, 20);
+    public static final Color GRADIENT_NEUTRAL_GREY_HOVER_START = new Color(209, 215, 219);
+    public static final Color GRADIENT_NEUTRAL_GREY_HOVER_END = new Color(147, 160, 161);
+    public static final Color GRADIENT_ACCENT_CYAN_HOVER_START = new Color(48, 208, 178);
+    public static final Color GRADIENT_ACCENT_CYAN_HOVER_END = new Color(42, 180, 153);
+
+
+    // Main background gradient for the JFrame
+    public static final Color BACKGROUND_LIGHT_START = new Color(200, 230, 255); // Soft Sky Blue
+    public static final Color BACKGROUND_LIGHT_END = new Color(255, 255, 255);   // Pure White
+    public static final Color BACKGROUND_PANEL = Color.WHITE; // White for content panels
+    public static final Color TEXT_DARK = new Color(26, 35, 126); // Dark Indigo for strong contrast
+    public static final Color BORDER_COLOR = new Color(150, 150, 150); // Slightly darker grey for definition
+
+    // Fonts (Arial for a clean, modern, and professional appearance)
+    public static final Font FONT_TITLE = new Font("Arial", Font.BOLD, 48); // Larger title
+    public static final Font FONT_SUBTITLE = new Font("Arial", Font.BOLD, 32); // Larger subtitle
+    public static final Font FONT_HEADER = new Font("Arial", Font.BOLD, 20); // Header for sections/tables
+    public static final Font FONT_BODY = new Font("Arial", Font.PLAIN, 16); // Standard text
+    public static final Font FONT_BUTTON = new Font("Arial", Font.BOLD, 18); // Button text
+    public static final Font FONT_SMALL_ITALIC = new Font("Arial", Font.ITALIC, 14); // Small italic text
+
 
     /**
      * Constructor for the PortfolioAdminApp.
@@ -43,21 +218,29 @@ public class PortfolioAdminApp extends JFrame {
         }
 
         setTitle("Portfolio Admin Dashboard");
-        setSize(800, 600);
+        setSize(1000, 700); // Increased size for better layout and design elements
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null); // Center the window
 
+        // Create the main content panel with a gradient background
+        JPanel gradientBackgroundPanel = new GradientPanel(BACKGROUND_LIGHT_START, BACKGROUND_LIGHT_END, false); // Vertical gradient
+        gradientBackgroundPanel.setLayout(new BorderLayout()); // Use BorderLayout for the gradient panel
+
         cardLayout = new CardLayout();
         mainPanel = new JPanel(cardLayout);
+        mainPanel.setOpaque(false); // Make mainPanel transparent so gradient shows through
 
-        // Initialize panels
+        // Initialize panels and add them to mainPanel
         LoginPanel loginPanel = new LoginPanel(this);
+        loginPanel.setOpaque(false); // Make loginPanel transparent to show gradient
         mainPanel.add(loginPanel, "Login");
+
+        // Add mainPanel to the gradient background panel
+        gradientBackgroundPanel.add(mainPanel, BorderLayout.CENTER);
+        setContentPane(gradientBackgroundPanel); // Set the gradient panel as the content pane
 
         // Show the login panel initially
         cardLayout.show(mainPanel, "Login");
-
-        add(mainPanel);
     }
 
     /**
@@ -65,6 +248,7 @@ public class PortfolioAdminApp extends JFrame {
      */
     public void showAdminDashboard() {
         AdminDashboardPanel dashboardPanel = new AdminDashboardPanel(this);
+        dashboardPanel.setOpaque(false); // Make dashboardPanel transparent
         mainPanel.add(dashboardPanel, "Dashboard");
         cardLayout.show(mainPanel, "Dashboard");
     }
@@ -74,6 +258,7 @@ public class PortfolioAdminApp extends JFrame {
      */
     public void showProjectManagement() {
         ProjectManagementPanel projectPanel = new ProjectManagementPanel(this);
+        projectPanel.setOpaque(false); // Make projectPanel transparent
         mainPanel.add(projectPanel, "Projects");
         cardLayout.show(mainPanel, "Projects");
     }
@@ -83,6 +268,7 @@ public class PortfolioAdminApp extends JFrame {
      */
     public void showSkillManagement() {
         SkillManagementPanel skillPanel = new SkillManagementPanel(this);
+        skillPanel.setOpaque(false); // Make skillPanel transparent
         mainPanel.add(skillPanel, "Skills");
         cardLayout.show(mainPanel, "Skills");
     }
@@ -92,6 +278,7 @@ public class PortfolioAdminApp extends JFrame {
      */
     public void showAboutManagement() {
         AboutManagementPanel aboutPanel = new AboutManagementPanel(this);
+        aboutPanel.setOpaque(false); // Make aboutPanel transparent
         mainPanel.add(aboutPanel, "About");
         cardLayout.show(mainPanel, "About");
     }
@@ -101,6 +288,7 @@ public class PortfolioAdminApp extends JFrame {
      */
     public void showContactManagement() {
         ContactManagementPanel contactPanel = new ContactManagementPanel(this);
+        contactPanel.setOpaque(false); // Make contactPanel transparent
         mainPanel.add(contactPanel, "Contacts");
         cardLayout.show(mainPanel, "Contacts");
     }
@@ -110,6 +298,7 @@ public class PortfolioAdminApp extends JFrame {
      */
     public void showLoginPanel() {
         LoginPanel loginPanel = new LoginPanel(this); // Recreate to clear fields
+        loginPanel.setOpaque(false); // Make loginPanel transparent
         mainPanel.add(loginPanel, "Login");
         cardLayout.show(mainPanel, "Login");
     }
@@ -267,12 +456,15 @@ class Contact {
     private String platform;
     private String link;
     private boolean deleted; // 0 for not deleted, 1 for deleted
+    // Assuming 'value' column in DB is intended to store the 'platform' type for the link
+    private String value; 
 
-    public Contact(int id, String platform, String link, boolean deleted) {
+    public Contact(int id, String platform, String link, boolean deleted, String value) {
         this.id = id;
         this.platform = platform;
         this.link = link;
         this.deleted = deleted;
+        this.value = value;
     }
 
     // Getters and Setters
@@ -284,6 +476,8 @@ class Contact {
     public void setLink(String link) { this.link = link; }
     public boolean isDeleted() { return deleted; }
     public void setDeleted(boolean deleted) { this.deleted = deleted; }
+    public String getValue() { return value; }
+    public void setValue(String value) { this.value = value; }
 }
 
 /**
@@ -314,6 +508,7 @@ class LoginPanel extends JPanel {
     private JTextField usernameField;
     private JPasswordField passwordField;
     private JLabel messageLabel;
+    private JCheckBox showPasswordCheckBox; // New checkbox for show/hide password
 
     /**
      * Constructor for LoginPanel.
@@ -322,29 +517,30 @@ class LoginPanel extends JPanel {
     public LoginPanel(PortfolioAdminApp parent) {
         this.parentFrame = parent;
         setLayout(new GridBagLayout());
-        setBackground(new Color(230, 240, 250)); // Light blue/grey background
+        // This panel is transparent to show the parent's gradient background
+        setOpaque(false);
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(15, 15, 15, 15);
+        gbc.insets = new Insets(25, 25, 25, 25); // Increased padding
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // Create a panel for the login form to give it a card-like appearance
         JPanel loginFormPanel = new JPanel(new GridBagLayout());
-        loginFormPanel.setBackground(Color.WHITE);
+        loginFormPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
         loginFormPanel.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(200, 200, 200), 1, true), // Softer, rounded border
-                new EmptyBorder(30, 30, 30, 30) // Internal padding
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true), // Softer, rounded border
+                new EmptyBorder(40, 40, 40, 40) // Internal padding
         ));
         loginFormPanel.putClientProperty("JComponent.roundRect", true); // Nimbus specific for rounded corners
 
         GridBagConstraints formGbc = new GridBagConstraints();
-        formGbc.insets = new Insets(10, 10, 10, 10);
+        formGbc.insets = new Insets(15, 15, 15, 15); // Consistent spacing
         formGbc.fill = GridBagConstraints.HORIZONTAL;
 
         // Title
         JLabel titleLabel = new JLabel("Admin Login", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        titleLabel.setForeground(new Color(30, 60, 90));
+        titleLabel.setFont(PortfolioAdminApp.FONT_SUBTITLE);
+        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
         formGbc.gridx = 0;
         formGbc.gridy = 0;
         formGbc.gridwidth = 2;
@@ -352,66 +548,108 @@ class LoginPanel extends JPanel {
 
         // Username
         JLabel usernameLabel = new JLabel("Username:");
-        usernameLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        usernameLabel.setFont(PortfolioAdminApp.FONT_BODY);
+        usernameLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
         formGbc.gridx = 0;
         formGbc.gridy = 1;
         formGbc.gridwidth = 1;
         loginFormPanel.add(usernameLabel, formGbc);
 
-        usernameField = new JTextField(20);
-        usernameField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        usernameField.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(180, 180, 180), 1, true), // Softer, rounded border
-                new EmptyBorder(5, 10, 5, 10)
-        ));
+        usernameField = createStyledTextField();
         formGbc.gridx = 1;
         formGbc.gridy = 1;
         loginFormPanel.add(usernameField, formGbc);
 
         // Password
         JLabel passwordLabel = new JLabel("Password:");
-        passwordLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        passwordLabel.setFont(PortfolioAdminApp.FONT_BODY);
+        passwordLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
         formGbc.gridx = 0;
         formGbc.gridy = 2;
         loginFormPanel.add(passwordLabel, formGbc);
 
-        passwordField = new JPasswordField(20);
-        passwordField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        passwordField.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(180, 180, 180), 1, true), // Softer, rounded border
-                new EmptyBorder(5, 10, 5, 10)
-        ));
+        passwordField = createStyledPasswordField();
         formGbc.gridx = 1;
         formGbc.gridy = 2;
         loginFormPanel.add(passwordField, formGbc);
 
-        // Login Button
-        JButton loginButton = new JButton("Login");
-        loginButton.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        loginButton.setBackground(new Color(0, 123, 255)); // Bright blue
-        loginButton.setForeground(Color.WHITE);
-        loginButton.setFocusPainted(false);
-        loginButton.setBorderPainted(false);
-        loginButton.setOpaque(true);
-        loginButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        loginButton.setBorder(BorderFactory.createEmptyBorder(10, 25, 10, 25)); // Padding
-        loginButton.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific for rounded buttons
-        loginButton.addActionListener(e -> attemptLogin());
-        formGbc.gridx = 0;
+        // Show Password Checkbox
+        showPasswordCheckBox = new JCheckBox("Show Password");
+        showPasswordCheckBox.setFont(PortfolioAdminApp.FONT_BODY);
+        showPasswordCheckBox.setForeground(PortfolioAdminApp.TEXT_DARK);
+        showPasswordCheckBox.setOpaque(false); // Make transparent to show gradient
+        showPasswordCheckBox.addActionListener(e -> {
+            if (showPasswordCheckBox.isSelected()) {
+                passwordField.setEchoChar((char) 0); // Show characters
+            } else {
+                passwordField.setEchoChar('*'); // Hide characters
+            }
+        });
+        formGbc.gridx = 1; // Align under the password field
         formGbc.gridy = 3;
+        formGbc.gridwidth = 1;
+        formGbc.anchor = GridBagConstraints.WEST; // Align to the left
+        formGbc.insets = new Insets(5, 15, 10, 15); // Adjust padding
+        loginFormPanel.add(showPasswordCheckBox, formGbc);
+
+        // Login Button
+        JButton loginButton = createStyledButton(
+            "Login",
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
+        loginButton.setFont(PortfolioAdminApp.FONT_BUTTON);
+        loginButton.addActionListener(e -> attemptLogin());
+        parentFrame.getRootPane().setDefaultButton(loginButton);
+        formGbc.gridx = 0;
+        formGbc.gridy = 4; // Shifted down due to new checkbox
         formGbc.gridwidth = 2;
+        formGbc.fill = GridBagConstraints.HORIZONTAL; // Ensure button fills horizontally
+        formGbc.insets = new Insets(25, 15, 15, 15); // More top padding for button
         loginFormPanel.add(loginButton, formGbc);
 
         // Message Label for feedback
         messageLabel = new JLabel("", SwingConstants.CENTER);
-        messageLabel.setForeground(new Color(220, 53, 69)); // Red for error messages
-        messageLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        messageLabel.setForeground(PortfolioAdminApp.ACCENT_RED);
+        messageLabel.setFont(PortfolioAdminApp.FONT_SMALL_ITALIC);
         formGbc.gridx = 0;
-        formGbc.gridy = 4;
+        formGbc.gridy = 5; // Shifted down
+        formGbc.gridwidth = 2;
+        formGbc.insets = new Insets(5, 15, 0, 15); // Less top padding for message
         loginFormPanel.add(messageLabel, formGbc);
 
         // Add the login form panel to the main LoginPanel
         add(loginFormPanel, gbc);
+    }
+
+    /** Helper method to create a styled JTextField. */
+    private JTextField createStyledTextField() {
+        JTextField field = new JTextField(20);
+        field.setFont(PortfolioAdminApp.FONT_BODY);
+        field.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12) // Increased padding
+        ));
+        return field;
+    }
+
+    /** Helper method to create a styled JPasswordField. */
+    private JPasswordField createStyledPasswordField() {
+        JPasswordField field = new JPasswordField(20);
+        field.setFont(PortfolioAdminApp.FONT_BODY);
+        field.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12) // Increased padding
+        ));
+        field.setEchoChar('*'); // Ensure it starts with hidden characters
+        return field;
+    }
+
+    /** Helper method to create a styled GradientButton. */
+    private GradientButton createStyledButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd) {
+        return new GradientButton(text, start, end, hoverStart, hoverEnd);
     }
 
     /**
@@ -445,17 +683,18 @@ class AdminDashboardPanel extends JPanel {
     public AdminDashboardPanel(PortfolioAdminApp parent) {
         this.parentFrame = parent;
         setLayout(new GridBagLayout());
-        setBackground(new Color(240, 248, 255)); // Light background for dashboard
+        // This panel is transparent to show the parent's gradient background
+        setOpaque(false);
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(20, 20, 20, 20); // Increased padding
+        gbc.insets = new Insets(25, 25, 25, 25); // Increased padding
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
         // Title
         JLabel titleLabel = new JLabel("Welcome to the Admin Dashboard", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 36)); // Larger, bold title
-        titleLabel.setForeground(new Color(30, 60, 90));
+        titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
+        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.gridwidth = 2;
@@ -463,21 +702,25 @@ class AdminDashboardPanel extends JPanel {
         add(titleLabel, gbc);
 
         // Logout Button (top right)
-        JButton logoutButton = new JButton("Logout");
-        logoutButton.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        logoutButton.setBackground(new Color(220, 53, 69)); // Red for logout
-        logoutButton.setForeground(Color.WHITE);
-        logoutButton.setFocusPainted(false);
-        logoutButton.setBorderPainted(false);
-        logoutButton.setOpaque(true);
-        logoutButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        logoutButton.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific
+        JButton logoutButton = createStyledButton(
+            "Logout",
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_END
+        );
+        logoutButton.setFont(PortfolioAdminApp.FONT_BUTTON);
+        logoutButton.setBorder(BorderFactory.createCompoundBorder(
+                new SoftBevelBorder(SoftBevelBorder.RAISED, new Color(220, 220, 220, 80), new Color(80, 80, 80, 80)),
+                new EmptyBorder(8, 15, 8, 15) // Smaller padding for logout
+        ));
         logoutButton.addActionListener(e -> parentFrame.showLoginPanel());
         gbc.gridx = 1;
         gbc.gridy = 0;
         gbc.gridwidth = 1;
         gbc.anchor = GridBagConstraints.NORTHEAST;
         gbc.fill = GridBagConstraints.NONE;
+        gbc.insets = new Insets(20, 20, 0, 20); // Adjust position
         add(logoutButton, gbc);
 
         // Reset GBC for main buttons
@@ -485,6 +728,7 @@ class AdminDashboardPanel extends JPanel {
         gbc.anchor = GridBagConstraints.CENTER;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
+        gbc.insets = new Insets(20, 20, 20, 20); // Restore default padding
 
         // Portfolio Button
         JButton portfolioButton = createDashboardButton("Manage Portfolio Projects", e -> parentFrame.showProjectManagement());
@@ -512,24 +756,28 @@ class AdminDashboardPanel extends JPanel {
     }
 
     /**
-     * Helper method to create styled dashboard buttons.
+     * Helper method to create styled dashboard buttons with a gradient background and hover.
      * @param text The text to display on the button.
      * @param listener The ActionListener for the button.
-     * @return A styled JButton.
+     * @return A styled GradientButton.
      */
-    private JButton createDashboardButton(String text, ActionListener listener) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 18)); // Larger, bold font
-        button.setBackground(new Color(0, 123, 255)); // Bright blue
-        button.setForeground(Color.WHITE);
-        button.setPreferredSize(new Dimension(250, 80)); // Larger buttons
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setOpaque(true);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific for rounded buttons
+    private GradientButton createDashboardButton(String text, ActionListener listener) {
+        GradientButton button = new GradientButton(
+            text,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
+        button.setFont(PortfolioAdminApp.FONT_HEADER); // Use FONT_HEADER for dashboard buttons
+        button.setPreferredSize(new Dimension(350, 120)); // Larger buttons
         button.addActionListener(listener);
         return button;
+    }
+
+    /** Helper method to create a styled GradientButton. */
+    private GradientButton createStyledButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd) {
+        return new GradientButton(text, start, end, hoverStart, hoverEnd);
     }
 }
 
@@ -548,6 +796,8 @@ class ProjectManagementPanel extends JPanel {
     private JLabel imagePreviewLabel; // Image preview for uploaded image
     private BufferedImage uploadedImage; // Store uploaded image
     private int selectedProjectId = -1; // To store the ID of the selected project for editing/deleting
+    private JScrollPane scrollPane; // Made scrollPane a field to control its visibility
+
 
     /**
      * Constructor for ProjectManagementPanel.
@@ -555,21 +805,33 @@ class ProjectManagementPanel extends JPanel {
      */
     public ProjectManagementPanel(PortfolioAdminApp parent) {
         this.parentFrame = parent;
-        setLayout(new BorderLayout(15, 15)); // Increased spacing
-        setBackground(new Color(245, 245, 245)); // Slightly darker background for contrast
-        setBorder(new EmptyBorder(20, 20, 20, 20)); // Increased padding
+        setLayout(new BorderLayout(20, 20)); // Increased spacing
+        // This panel is transparent to show the parent's gradient background
+        setOpaque(false);
+        setBorder(new EmptyBorder(25, 25, 25, 25)); // Increased padding
 
         // --- North Panel: Title and Back Button ---
         JPanel northPanel = new JPanel(new BorderLayout());
-        northPanel.setBackground(new Color(245, 245, 245));
+        northPanel.setOpaque(false); // Make transparent
         JLabel titleLabel = new JLabel("Manage Portfolio Projects", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 32)); // Larger, bold title
-        titleLabel.setForeground(new Color(30, 60, 90));
+        titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
+        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
         northPanel.add(titleLabel, BorderLayout.CENTER);
 
-        JButton backButton = createStyledBackButton("⬅ Back to Dashboard", e -> parentFrame.showAdminDashboard());
+        JButton backButton = createStyledBackButton(
+            "⬅ Back to Dashboard",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END,
+            e -> parentFrame.showAdminDashboard()
+        );
         northPanel.add(backButton, BorderLayout.WEST);
         add(northPanel, BorderLayout.NORTH);
+
+        // --- Main Content Area Panel (holds table and form) ---
+        JPanel contentAreaPanel = new JPanel(new BorderLayout(20, 20));
+        contentAreaPanel.setOpaque(false); // Make transparent
 
         // --- Center Panel: Table of Projects ---
         String[] columnNames = {"ID", "Title", "Description", "Link"};
@@ -587,74 +849,114 @@ class ProjectManagementPanel extends JPanel {
             }
         });
         // Table styling
-        projectTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        projectTable.setRowHeight(25);
-        projectTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        projectTable.getTableHeader().setBackground(new Color(0, 123, 255));
+        projectTable.setFont(PortfolioAdminApp.FONT_BODY);
+        projectTable.setRowHeight(30); // Increased row height
+        projectTable.getTableHeader().setFont(PortfolioAdminApp.FONT_HEADER);
+        projectTable.getTableHeader().setBackground(PortfolioAdminApp.PRIMARY_BLUE);
         projectTable.getTableHeader().setForeground(Color.WHITE);
-        projectTable.setGridColor(new Color(220, 220, 220));
-        projectTable.setSelectionBackground(new Color(173, 216, 230)); // Light blue selection
-        projectTable.setSelectionForeground(Color.BLACK);
+        projectTable.setGridColor(PortfolioAdminApp.BORDER_COLOR);
+        projectTable.setSelectionBackground(new Color(173, 216, 230, 100)); // Light blue selection with transparency
+        projectTable.setSelectionForeground(PortfolioAdminApp.TEXT_DARK);
+        projectTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (!isSelected) {
+                    c.setBackground(row % 2 == 0 ? PortfolioAdminApp.BACKGROUND_PANEL : new Color(248, 248, 248)); // Alternating row colors
+                }
+                c.setForeground(PortfolioAdminApp.TEXT_DARK);
+                setBorder(new EmptyBorder(5, 10, 5, 10)); // Cell padding
+                return c;
+            }
+        });
 
-        JScrollPane scrollPane = new JScrollPane(projectTable);
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true)); // Rounded border for scroll pane
-        add(scrollPane, BorderLayout.CENTER);
+
+        scrollPane = new JScrollPane(projectTable);
+        scrollPane.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true), // Rounded border for scroll pane
+                BorderFactory.createEmptyBorder(5, 5, 5, 5) // Inner padding for scroll pane
+        ));
+        // Table is now visible by default and loaded on panel display
+        contentAreaPanel.add(scrollPane, BorderLayout.CENTER); // Add to contentAreaPanel
+
 
         // --- South Panel: Form for Add/Edit ---
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true), // Rounded title border
-                "Project Details",
-                TitledBorder.LEFT, TitledBorder.TOP,
-                new Font("Segoe UI", Font.BOLD, 16),
-                new Color(30, 60, 90)
-        ));
-        formPanel.setBackground(Color.WHITE);
-        formPanel.putClientProperty("JComponent.roundRect", true); // Nimbus specific for rounded corners
+        JPanel formPanel = createStyledTitledPanel("Project Details", new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 8, 8, 8); // Increased padding
+        gbc.insets = new Insets(10, 10, 10, 10); // Consistent padding
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // Title
-        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(new JLabel("Title:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(createStyledLabel("Title:"), gbc);
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0; titleField = createStyledTextField(); formPanel.add(titleField, gbc);
 
         // Description
-        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(new JLabel("Description:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 1; descriptionArea = createStyledTextArea(3, 20);
+        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Description:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 1; descriptionArea = createStyledTextArea(4, 20); // Increased rows
         JScrollPane descScrollPane = new JScrollPane(descriptionArea);
+        descScrollPane.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true)); // Border for text area scroll pane
         formPanel.add(descScrollPane, gbc);
 
         // Link (optional)
-        gbc.gridx = 0; gbc.gridy = 2; formPanel.add(new JLabel("Link (optional):"), gbc);
+        gbc.gridx = 0; gbc.gridy = 2; formPanel.add(createStyledLabel("Link (optional):"), gbc);
         gbc.gridx = 1; gbc.gridy = 2; linkField = createStyledTextField(); formPanel.add(linkField, gbc);
 
         // Upload Image Button
-        gbc.gridx = 0; gbc.gridy = 3; formPanel.add(new JLabel("Upload Image:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 3; formPanel.add(createStyledLabel("Upload Image:"), gbc);
         gbc.gridx = 1; gbc.gridy = 3;
-        uploadImageButton = new JButton("Choose Image");
+        uploadImageButton = createStyledButton(
+            "Choose Image",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END
+        );
         uploadImageButton.addActionListener(e -> uploadImage());
         formPanel.add(uploadImageButton, gbc);
 
         // Image Preview
-        gbc.gridx = 0; gbc.gridy = 4; formPanel.add(new JLabel("Image Preview:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 4; formPanel.add(createStyledLabel("Image Preview:"), gbc);
         gbc.gridx = 1; gbc.gridy = 4;
         imagePreviewLabel = new JLabel("No Image", SwingConstants.CENTER);
-        imagePreviewLabel.setPreferredSize(new Dimension(150, 100));
-        imagePreviewLabel.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true));
+        imagePreviewLabel.setPreferredSize(new Dimension(200, 120)); // Larger preview
+        imagePreviewLabel.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true));
         imagePreviewLabel.setHorizontalAlignment(SwingConstants.CENTER);
         imagePreviewLabel.setVerticalAlignment(SwingConstants.CENTER);
-        imagePreviewLabel.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+        imagePreviewLabel.setFont(PortfolioAdminApp.FONT_SMALL_ITALIC);
         imagePreviewLabel.setForeground(Color.GRAY);
         formPanel.add(imagePreviewLabel, gbc);
 
         // Buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0)); // Increased spacing
-        buttonPanel.setBackground(Color.WHITE);
-        addButton = createStyledButton("Add Project", new Color(40, 167, 69)); // Green
-        updateButton = createStyledButton("Update Project", new Color(0, 123, 255)); // Blue
-        deleteButton = createStyledButton("Delete Project", new Color(220, 53, 69)); // Red
-        JButton clearButton = createStyledButton("Clear Form", new Color(108, 117, 125)); // Grey
+        buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        addButton = createStyledButton(
+            "Add Project",
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_END
+        );
+        updateButton = createStyledButton(
+            "Update Project",
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
+        deleteButton = createStyledButton(
+            "Delete Project",
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_END
+        );
+        JButton clearButton = createStyledButton(
+            "Clear Form",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END
+        );
 
         addButton.addActionListener(e -> addProject());
         updateButton.addActionListener(e -> updateProject());
@@ -669,20 +971,23 @@ class ProjectManagementPanel extends JPanel {
         gbc.gridx = 0;
         gbc.gridy = 5;
         gbc.gridwidth = 2;
+        gbc.insets = new Insets(20, 10, 10, 10); // More top padding for buttons
         formPanel.add(buttonPanel, gbc);
-        add(formPanel, BorderLayout.SOUTH);
+        contentAreaPanel.add(formPanel, BorderLayout.SOUTH); // Add to contentAreaPanel
 
-        loadProjects(); // Load data when panel is initialized
+        add(contentAreaPanel, BorderLayout.CENTER); // Add the main content area to the panel
+
+        loadProjects(); // Load projects immediately when the panel is initialized
         clearForm(); // Set initial button states
     }
 
     /** Helper method to create a styled JTextField. */
     private JTextField createStyledTextField() {
-        JTextField field = new JTextField(20);
-        field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        JTextField field = new JTextField(25); // Slightly wider
+        field.setFont(PortfolioAdminApp.FONT_BODY);
         field.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(180, 180, 180), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12) // Increased padding
         ));
         return field;
     }
@@ -692,43 +997,52 @@ class ProjectManagementPanel extends JPanel {
         JTextArea area = new JTextArea(rows, cols);
         area.setLineWrap(true);
         area.setWrapStyleWord(true);
-        area.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        area.setFont(PortfolioAdminApp.FONT_BODY);
         area.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(180, 180, 180), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12) // Increased padding
         ));
         return area;
     }
 
-    /** Helper method to create a styled JButton. */
-    private JButton createStyledButton(String text, Color bgColor) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        button.setBackground(bgColor);
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setOpaque(true);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
-        button.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific
+    /** Helper method to create a styled GradientButton. */
+    private GradientButton createStyledButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd) {
+        return new GradientButton(text, start, end, hoverStart, hoverEnd);
+    }
+
+    /** Helper method to create a styled back button with a subtle raised effect. */
+    private GradientButton createStyledBackButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd, ActionListener listener) {
+        GradientButton button = new GradientButton(text, start, end, hoverStart, hoverEnd);
+        button.setFont(PortfolioAdminApp.FONT_BUTTON);
+        button.setBorder(BorderFactory.createCompoundBorder(
+                new SoftBevelBorder(SoftBevelBorder.RAISED, new Color(220, 220, 220, 80), new Color(80, 80, 80, 80)),
+                new EmptyBorder(8, 15, 8, 15)
+        ));
+        button.addActionListener(listener);
         return button;
     }
 
-    /** Helper method to create a styled back button. */
-    private JButton createStyledBackButton(String text, ActionListener listener) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        button.setBackground(new Color(108, 117, 125)); // Grey
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setOpaque(true);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
-        button.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific
-        button.addActionListener(listener);
-        return button;
+    /** Helper method to create a styled JLabel. */
+    private JLabel createStyledLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(PortfolioAdminApp.FONT_BODY);
+        label.setForeground(PortfolioAdminApp.TEXT_DARK);
+        return label;
+    }
+
+    /** Helper method to create a styled Titled Panel. */
+    private JPanel createStyledTitledPanel(String title, LayoutManager layout) {
+        JPanel panel = new JPanel(layout);
+        panel.setBorder(BorderFactory.createTitledBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                title,
+                TitledBorder.LEFT, TitledBorder.TOP,
+                PortfolioAdminApp.FONT_HEADER,
+                PortfolioAdminApp.TEXT_DARK
+        ));
+        panel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        panel.putClientProperty("JComponent.roundRect", true);
+        return panel;
     }
 
     /**
@@ -766,6 +1080,8 @@ class ProjectManagementPanel extends JPanel {
             linkField.setText((String) tableModel.getValueAt(selectedRow, 3));
 
             // Reset uploadedImage and image preview when a project is selected, since we do not retrieve image bytes here
+            // If you need to display the existing image, you would need to fetch it from the DB.
+            // For simplicity, we assume image is re-uploaded if changed.
             uploadedImage = null;
             imagePreviewLabel.setIcon(null);
             imagePreviewLabel.setText("No Image");
@@ -839,6 +1155,8 @@ class ProjectManagementPanel extends JPanel {
         if (hasImage) {
             sql = "UPDATE projects SET title = ?, description = ?, image = ?, link = ? WHERE id = ?";
         } else {
+            // If no new image is uploaded, we update title, description, and link only.
+            // The existing image in the DB remains.
             sql = "UPDATE projects SET title = ?, description = ?, link = ? WHERE id = ?";
         }
 
@@ -923,7 +1241,8 @@ class ProjectManagementPanel extends JPanel {
             File selectedFile = fileChooser.getSelectedFile();
             try {
                 uploadedImage = ImageIO.read(selectedFile);
-                ImageIcon icon = new ImageIcon(uploadedImage.getScaledInstance(150, 100, Image.SCALE_SMOOTH));
+                ImageIcon icon = new ImageIcon(uploadedImage.getScaledInstance(
+                        imagePreviewLabel.getWidth(), imagePreviewLabel.getHeight(), Image.SCALE_SMOOTH));
                 imagePreviewLabel.setIcon(icon);
                 imagePreviewLabel.setText(""); // Clear text if image loads successfully
             } catch (IOException e) {
@@ -953,19 +1272,27 @@ class SkillManagementPanel extends JPanel {
      */
     public SkillManagementPanel(PortfolioAdminApp parent) {
         this.parentFrame = parent;
-        setLayout(new BorderLayout(15, 15));
-        setBackground(new Color(245, 245, 245));
-        setBorder(new EmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout(20, 20));
+        // This panel is transparent to show the parent's gradient background
+        setOpaque(false);
+        setBorder(new EmptyBorder(25, 25, 25, 25));
 
         // --- North Panel: Title and Back Button ---
         JPanel northPanel = new JPanel(new BorderLayout());
-        northPanel.setBackground(new Color(245, 245, 245));
+        northPanel.setOpaque(false); // Make transparent
         JLabel titleLabel = new JLabel("Manage Skills", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 32));
-        titleLabel.setForeground(new Color(30, 60, 90));
+        titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
+        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
         northPanel.add(titleLabel, BorderLayout.CENTER);
 
-        JButton backButton = createStyledBackButton("⬅ Back to Dashboard", e -> parentFrame.showAdminDashboard());
+        JButton backButton = createStyledBackButton(
+            "⬅ Back to Dashboard",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END,
+            e -> parentFrame.showAdminDashboard()
+        );
         northPanel.add(backButton, BorderLayout.WEST);
         add(northPanel, BorderLayout.NORTH);
 
@@ -985,55 +1312,85 @@ class SkillManagementPanel extends JPanel {
             }
         });
         // Table styling
-        skillTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        skillTable.setRowHeight(25);
-        skillTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        skillTable.getTableHeader().setBackground(new Color(0, 123, 255));
+        skillTable.setFont(PortfolioAdminApp.FONT_BODY);
+        skillTable.setRowHeight(30);
+        skillTable.getTableHeader().setFont(PortfolioAdminApp.FONT_HEADER);
+        skillTable.getTableHeader().setBackground(PortfolioAdminApp.PRIMARY_BLUE);
         skillTable.getTableHeader().setForeground(Color.WHITE);
-        skillTable.setGridColor(new Color(220, 220, 220));
-        skillTable.setSelectionBackground(new Color(173, 216, 230));
-        skillTable.setSelectionForeground(Color.BLACK);
+        skillTable.setGridColor(PortfolioAdminApp.BORDER_COLOR);
+        skillTable.setSelectionBackground(new Color(173, 216, 230, 100));
+        skillTable.setSelectionForeground(PortfolioAdminApp.TEXT_DARK);
+        skillTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (!isSelected) {
+                    c.setBackground(row % 2 == 0 ? PortfolioAdminApp.BACKGROUND_PANEL : new Color(248, 248, 248));
+                }
+                c.setForeground(PortfolioAdminApp.TEXT_DARK);
+                setBorder(new EmptyBorder(5, 10, 5, 10)); // Cell padding
+                return c;
+            }
+        });
 
         JScrollPane scrollPane = new JScrollPane(skillTable);
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true));
+        scrollPane.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(5, 5, 5, 5)
+        ));
         add(scrollPane, BorderLayout.CENTER);
 
         // --- South Panel: Form for Add/Edit ---
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true),
-                "Skill Details",
-                TitledBorder.LEFT, TitledBorder.TOP,
-                new Font("Segoe UI", Font.BOLD, 16),
-                new Color(30, 60, 90)
-        ));
-        formPanel.setBackground(Color.WHITE);
-        formPanel.putClientProperty("JComponent.roundRect", true);
+        JPanel formPanel = createStyledTitledPanel("Skill Details", new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // Skill ComboBox
-        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(new JLabel("Skill:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(createStyledLabel("Skill:"), gbc);
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
-        String[] skills = {"Java", "HTML", "CSS", "JavaScript", "Python", "C++", "Ruby", "PHP"};
-        skillComboBox = new JComboBox<>(skills);
+        String[] skills = {"Java", "HTML", "CSS", "JavaScript", "Python", "C++", "Ruby", "PHP", "SQL", "Git", "React", "Angular", "Vue.js", "Node.js", "Spring Boot", "Docker", "Kubernetes", "AWS", "Azure", "Google Cloud"}; // Expanded list
+        skillComboBox = createStyledComboBox(skills);
         formPanel.add(skillComboBox, gbc);
 
         // Level ComboBox
-        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(new JLabel("Level:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Level:"), gbc);
         gbc.gridx = 1; gbc.gridy = 1;
-        String[] levels = {"Beginner", "Intermediate", "Expert"};
-        levelComboBox = new JComboBox<>(levels);
+        String[] levels = {"Beginner", "Intermediate", "Expert", "Master"}; // Added "Master"
+        levelComboBox = createStyledComboBox(levels);
         formPanel.add(levelComboBox, gbc);
 
         // Buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
-        buttonPanel.setBackground(Color.WHITE);
-        addButton = createStyledButton("Add Skill", new Color(40, 167, 69));
-        updateButton = createStyledButton("Update Skill", new Color(0, 123, 255));
-        deleteButton = createStyledButton("Delete Skill", new Color(220, 53, 69));
-        JButton clearButton = createStyledButton("Clear Form", new Color(108, 117, 125));
+        buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        addButton = createStyledButton(
+            "Add Skill",
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_END
+        );
+        updateButton = createStyledButton(
+            "Update Skill",
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
+        deleteButton = createStyledButton(
+            "Delete Skill",
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_END
+        );
+        JButton clearButton = createStyledButton(
+            "Clear Form",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END
+        );
 
         addButton.addActionListener(e -> addSkill());
         updateButton.addActionListener(e -> updateSkill());
@@ -1045,7 +1402,9 @@ class SkillManagementPanel extends JPanel {
         buttonPanel.add(deleteButton);
         buttonPanel.add(clearButton);
 
-        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2; formPanel.add(buttonPanel, gbc);
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
+        gbc.insets = new Insets(20, 10, 10, 10);
+        formPanel.add(buttonPanel, gbc);
         add(formPanel, BorderLayout.SOUTH);
 
         loadSkills();
@@ -1054,44 +1413,65 @@ class SkillManagementPanel extends JPanel {
 
     /** Helper method to create a styled JTextField. */
     private JTextField createStyledTextField() {
-        JTextField field = new JTextField(20);
-        field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        JTextField field = new JTextField(25);
+        field.setFont(PortfolioAdminApp.FONT_BODY);
         field.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(180, 180, 180), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12)
         ));
         return field;
     }
 
-    /** Helper method to create a styled JButton. */
-    private JButton createStyledButton(String text, Color bgColor) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        button.setBackground(bgColor);
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setOpaque(true);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
-        button.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific
+    /** Helper method to create a styled JComboBox. */
+    private JComboBox<String> createStyledComboBox(String[] items) {
+        JComboBox<String> comboBox = new JComboBox<>(items);
+        comboBox.setFont(PortfolioAdminApp.FONT_BODY);
+        comboBox.setBackground(Color.WHITE);
+        comboBox.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
+        return comboBox;
+    }
+
+    /** Helper method to create a styled GradientButton. */
+    private GradientButton createStyledButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd) {
+        return new GradientButton(text, start, end, hoverStart, hoverEnd);
+    }
+
+    /** Helper method to create a styled back button with a subtle raised effect. */
+    private GradientButton createStyledBackButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd, ActionListener listener) {
+        GradientButton button = new GradientButton(text, start, end, hoverStart, hoverEnd);
+        button.setFont(PortfolioAdminApp.FONT_BUTTON);
+        button.setBorder(BorderFactory.createCompoundBorder(
+                new SoftBevelBorder(SoftBevelBorder.RAISED, new Color(220, 220, 220, 80), new Color(80, 80, 80, 80)),
+                new EmptyBorder(8, 15, 8, 15)
+        ));
+        button.addActionListener(listener);
         return button;
     }
 
-    /** Helper method to create a styled back button. */
-    private JButton createStyledBackButton(String text, ActionListener listener) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        button.setBackground(new Color(108, 117, 125)); // Grey
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setOpaque(true);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
-        button.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific
-        button.addActionListener(listener);
-        return button;
+    /** Helper method to create a styled JLabel. */
+    private JLabel createStyledLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(PortfolioAdminApp.FONT_BODY);
+        label.setForeground(PortfolioAdminApp.TEXT_DARK);
+        return label;
+    }
+
+    /** Helper method to create a styled Titled Panel. */
+    private JPanel createStyledTitledPanel(String title, LayoutManager layout) {
+        JPanel panel = new JPanel(layout);
+        panel.setBorder(BorderFactory.createTitledBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                title,
+                TitledBorder.LEFT, TitledBorder.TOP,
+                PortfolioAdminApp.FONT_HEADER,
+                PortfolioAdminApp.TEXT_DARK
+        ));
+        panel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        panel.putClientProperty("JComponent.roundRect", true);
+        return panel;
     }
 
     /**
@@ -1140,7 +1520,7 @@ class SkillManagementPanel extends JPanel {
         String skill = (String) skillComboBox.getSelectedItem();
         String level = (String) levelComboBox.getSelectedItem();
 
-        if (skill == null || level == null) {
+        if (skill == null || skill.isEmpty() || level == null || level.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Skill and level cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
@@ -1172,7 +1552,7 @@ class SkillManagementPanel extends JPanel {
         String skill = (String) skillComboBox.getSelectedItem();
         String level = (String) levelComboBox.getSelectedItem();
 
-        if (skill == null || level == null) {
+        if (skill == null || skill.isEmpty() || level == null || level.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Skill and level cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
@@ -1249,43 +1629,48 @@ class AboutManagementPanel extends JPanel {
      */
     public AboutManagementPanel(PortfolioAdminApp parent) {
         this.parentFrame = parent;
-        setLayout(new BorderLayout(15, 15));
-        setBackground(new Color(245, 245, 245));
-        setBorder(new EmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout(20, 20));
+        // This panel is transparent to show the parent's gradient background
+        setOpaque(false);
+        setBorder(new EmptyBorder(25, 25, 25, 25));
 
         // --- North Panel: Title and Back Button ---
         JPanel northPanel = new JPanel(new BorderLayout());
-        northPanel.setBackground(new Color(245, 245, 245));
+        northPanel.setOpaque(false); // Make transparent
         JLabel titleLabel = new JLabel("Manage About Me Content", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 32));
-        titleLabel.setForeground(new Color(30, 60, 90));
+        titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
+        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
         northPanel.add(titleLabel, BorderLayout.CENTER);
 
-        JButton backButton = createStyledBackButton("⬅ Back to Dashboard", e -> parentFrame.showAdminDashboard());
+        JButton backButton = createStyledBackButton(
+            "⬅ Back to Dashboard",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END,
+            e -> parentFrame.showAdminDashboard()
+        );
         northPanel.add(backButton, BorderLayout.WEST);
         add(northPanel, BorderLayout.NORTH);
 
         // --- Center Panel: About Me Content Area ---
-        JPanel contentPanel = new JPanel(new BorderLayout(10, 10));
-        contentPanel.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true),
-                "About Me Text",
-                TitledBorder.LEFT, TitledBorder.TOP,
-                new Font("Segoe UI", Font.BOLD, 16),
-                new Color(30, 60, 90)
-        ));
-        contentPanel.setBackground(Color.WHITE);
-        contentPanel.putClientProperty("JComponent.roundRect", true);
+        JPanel contentPanel = createStyledTitledPanel("About Me Text", new BorderLayout(10, 10));
         aboutContentArea = createStyledTextArea(15, 50);
         JScrollPane scrollPane = new JScrollPane(aboutContentArea);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder()); // Remove default scroll pane border
+        scrollPane.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true));
         contentPanel.add(scrollPane, BorderLayout.CENTER);
         add(contentPanel, BorderLayout.CENTER);
 
         // --- South Panel: Save Button ---
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        buttonPanel.setBackground(new Color(245, 245, 245)); // Match panel background
-        saveButton = createStyledButton("Save About Me", new Color(0, 123, 255));
+        buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL); // Match panel background
+        saveButton = createStyledButton(
+            "Save About Me",
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
         saveButton.addActionListener(e -> saveAboutContent());
         buttonPanel.add(saveButton);
         add(buttonPanel, BorderLayout.SOUTH);
@@ -1298,43 +1683,52 @@ class AboutManagementPanel extends JPanel {
         JTextArea area = new JTextArea(rows, cols);
         area.setLineWrap(true);
         area.setWrapStyleWord(true);
-        area.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        area.setFont(PortfolioAdminApp.FONT_BODY);
         area.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(180, 180, 180), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12)
         ));
         return area;
     }
 
-    /** Helper method to create a styled JButton. */
-    private JButton createStyledButton(String text, Color bgColor) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        button.setBackground(bgColor);
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setOpaque(true);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
-        button.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific
+    /** Helper method to create a styled GradientButton. */
+    private GradientButton createStyledButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd) {
+        return new GradientButton(text, start, end, hoverStart, hoverEnd);
+    }
+
+    /** Helper method to create a styled back button with a subtle raised effect. */
+    private GradientButton createStyledBackButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd, ActionListener listener) {
+        GradientButton button = new GradientButton(text, start, end, hoverStart, hoverEnd);
+        button.setFont(PortfolioAdminApp.FONT_BUTTON);
+        button.setBorder(BorderFactory.createCompoundBorder(
+                new SoftBevelBorder(SoftBevelBorder.RAISED, new Color(220, 220, 220, 80), new Color(80, 80, 80, 80)),
+                new EmptyBorder(8, 15, 8, 15)
+        ));
+        button.addActionListener(listener);
         return button;
     }
 
-    /** Helper method to create a styled back button. */
-    private JButton createStyledBackButton(String text, ActionListener listener) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        button.setBackground(new Color(108, 117, 125)); // Grey
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setOpaque(true);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
-        button.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific
-        button.addActionListener(listener);
-        return button;
+    /** Helper method to create a styled JLabel. */
+    private JLabel createStyledLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(PortfolioAdminApp.FONT_BODY);
+        label.setForeground(PortfolioAdminApp.TEXT_DARK);
+        return label;
+    }
+
+    /** Helper method to create a styled Titled Panel. */
+    private JPanel createStyledTitledPanel(String title, LayoutManager layout) {
+        JPanel panel = new JPanel(layout);
+        panel.setBorder(BorderFactory.createTitledBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                title,
+                TitledBorder.LEFT, TitledBorder.TOP,
+                PortfolioAdminApp.FONT_HEADER,
+                PortfolioAdminApp.TEXT_DARK
+        ));
+        panel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        panel.putClientProperty("JComponent.roundRect", true);
+        return panel;
     }
 
     /**
@@ -1423,19 +1817,27 @@ class ContactManagementPanel extends JPanel {
      */
     public ContactManagementPanel(PortfolioAdminApp parent) {
         this.parentFrame = parent;
-        setLayout(new BorderLayout(15, 15));
-        setBackground(new Color(245, 245, 245));
-        setBorder(new EmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout(20, 20));
+        // This panel is transparent to show the parent's gradient background
+        setOpaque(false);
+        setBorder(new EmptyBorder(25, 25, 25, 25));
 
         // --- North Panel: Title and Back Button ---
         JPanel northPanel = new JPanel(new BorderLayout());
-        northPanel.setBackground(new Color(245, 245, 245));
+        northPanel.setOpaque(false); // Make transparent
         JLabel titleLabel = new JLabel("Manage Contacts", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 32));
-        titleLabel.setForeground(new Color(30, 60, 90));
+        titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
+        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
         northPanel.add(titleLabel, BorderLayout.CENTER);
 
-        JButton backButton = createStyledBackButton("⬅ Back to Dashboard", e -> parentFrame.showAdminDashboard());
+        JButton backButton = createStyledBackButton(
+            "⬅ Back to Dashboard",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END,
+            e -> parentFrame.showAdminDashboard()
+        );
         northPanel.add(backButton, BorderLayout.WEST);
         add(northPanel, BorderLayout.NORTH);
 
@@ -1445,16 +1847,7 @@ class ContactManagementPanel extends JPanel {
         splitPane.setBorder(BorderFactory.createEmptyBorder()); // Remove default border
 
         // Active Contacts Table
-        JPanel activePanel = new JPanel(new BorderLayout());
-        activePanel.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true),
-                "Active Contacts",
-                TitledBorder.LEFT, TitledBorder.TOP,
-                new Font("Segoe UI", Font.BOLD, 16),
-                new Color(30, 60, 90)
-        ));
-        activePanel.setBackground(Color.WHITE);
-        activePanel.putClientProperty("JComponent.roundRect", true);
+        JPanel activePanel = createStyledTitledPanel("Active Contacts", new BorderLayout());
         String[] activeColumnNames = {"ID", "Platform", "Link"};
         activeTableModel = new DefaultTableModel(activeColumnNames, 0) {
             @Override
@@ -1474,14 +1867,26 @@ class ContactManagementPanel extends JPanel {
             }
         });
         // Table styling
-        activeContactTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        activeContactTable.setRowHeight(25);
-        activeContactTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        activeContactTable.getTableHeader().setBackground(new Color(0, 123, 255));
+        activeContactTable.setFont(PortfolioAdminApp.FONT_BODY);
+        activeContactTable.setRowHeight(30);
+        activeContactTable.getTableHeader().setFont(PortfolioAdminApp.FONT_HEADER);
+        activeContactTable.getTableHeader().setBackground(PortfolioAdminApp.PRIMARY_BLUE);
         activeContactTable.getTableHeader().setForeground(Color.WHITE);
-        activeContactTable.setGridColor(new Color(220, 220, 220));
-        activeContactTable.setSelectionBackground(new Color(173, 216, 230));
-        activeContactTable.setSelectionForeground(Color.BLACK);
+        activeContactTable.setGridColor(PortfolioAdminApp.BORDER_COLOR);
+        activeContactTable.setSelectionBackground(new Color(173, 216, 230, 100));
+        activeContactTable.setSelectionForeground(PortfolioAdminApp.TEXT_DARK);
+        activeContactTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (!isSelected) {
+                    c.setBackground(row % 2 == 0 ? PortfolioAdminApp.BACKGROUND_PANEL : new Color(248, 248, 248));
+                }
+                c.setForeground(PortfolioAdminApp.TEXT_DARK);
+                setBorder(new EmptyBorder(5, 10, 5, 10)); // Cell padding
+                return c;
+            }
+        });
 
         JScrollPane activeScrollPane = new JScrollPane(activeContactTable);
         activeScrollPane.setBorder(BorderFactory.createEmptyBorder()); // Remove default scroll pane border
@@ -1489,16 +1894,7 @@ class ContactManagementPanel extends JPanel {
         splitPane.setTopComponent(activePanel);
 
         // Deleted Contacts Table
-        JPanel deletedPanel = new JPanel(new BorderLayout());
-        deletedPanel.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true),
-                "Deleted Contacts (Trash)",
-                TitledBorder.LEFT, TitledBorder.TOP,
-                new Font("Segoe UI", Font.BOLD, 16),
-                new Color(30, 60, 90)
-        ));
-        deletedPanel.setBackground(Color.WHITE);
-        deletedPanel.putClientProperty("JComponent.roundRect", true);
+        JPanel deletedPanel = createStyledTitledPanel("Deleted Contacts (Trash)", new BorderLayout());
         String[] deletedColumnNames = {"ID", "Platform", "Link"};
         deletedTableModel = new DefaultTableModel(deletedColumnNames, 0) {
             @Override
@@ -1519,14 +1915,26 @@ class ContactManagementPanel extends JPanel {
             }
         });
         // Table styling
-        deletedContactTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        deletedContactTable.setRowHeight(25);
-        deletedContactTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        deletedContactTable.getTableHeader().setBackground(new Color(0, 123, 255));
+        deletedContactTable.setFont(PortfolioAdminApp.FONT_BODY);
+        deletedContactTable.setRowHeight(30);
+        deletedContactTable.getTableHeader().setFont(PortfolioAdminApp.FONT_HEADER);
+        deletedContactTable.getTableHeader().setBackground(PortfolioAdminApp.PRIMARY_BLUE);
         deletedContactTable.getTableHeader().setForeground(Color.WHITE);
-        deletedContactTable.setGridColor(new Color(220, 220, 220));
-        deletedContactTable.setSelectionBackground(new Color(173, 216, 230));
-        deletedContactTable.setSelectionForeground(Color.BLACK);
+        deletedContactTable.setGridColor(PortfolioAdminApp.BORDER_COLOR);
+        deletedContactTable.setSelectionBackground(new Color(173, 216, 230, 100));
+        deletedContactTable.setSelectionForeground(PortfolioAdminApp.TEXT_DARK);
+        deletedContactTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (!isSelected) {
+                    c.setBackground(row % 2 == 0 ? PortfolioAdminApp.BACKGROUND_PANEL : new Color(248, 248, 248));
+                }
+                c.setForeground(PortfolioAdminApp.TEXT_DARK);
+                setBorder(new EmptyBorder(5, 10, 5, 10)); // Cell padding
+                return c;
+            }
+        });
 
         JScrollPane deletedScrollPane = new JScrollPane(deletedContactTable);
         deletedScrollPane.setBorder(BorderFactory.createEmptyBorder()); // Remove default scroll pane border
@@ -1536,44 +1944,60 @@ class ContactManagementPanel extends JPanel {
         add(splitPane, BorderLayout.CENTER);
 
         // --- South Panel: Form for Add/Edit/Restore ---
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true),
-                "Contact Details / Actions",
-                TitledBorder.LEFT, TitledBorder.TOP,
-                new Font("Segoe UI", Font.BOLD, 16),
-                new Color(30, 60, 90)
-        ));
-        formPanel.setBackground(Color.WHITE);
-        formPanel.putClientProperty("JComponent.roundRect", true);
+        JPanel formPanel = createStyledTitledPanel("Contact Details / Actions", new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // Platform
-        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(new JLabel("Platform:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(createStyledLabel("Platform:"), gbc);
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
-        String[] platforms = {"", "Facebook", "Phone", "Email", "Other"};
-        platformComboBox = new JComboBox<>(platforms);
-        platformComboBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        platformComboBox.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(180, 180, 180), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
-        ));
+        String[] platforms = {"", "Phone", "Email", "LinkedIn", "GitHub", "Website", "Twitter", "Facebook", "Instagram", "Discord", "Telegram", "WhatsApp", "YouTube", "Blog", "Other"}; // Even more platforms
+        platformComboBox = createStyledComboBox(platforms);
         formPanel.add(platformComboBox, gbc);
 
         // Link
-        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(new JLabel("Link:"), gbc);
+        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Link:"), gbc);
         gbc.gridx = 1; gbc.gridy = 1; linkField = createStyledTextField(); formPanel.add(linkField, gbc);
 
         // Buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
-        buttonPanel.setBackground(Color.WHITE);
-        addButton = createStyledButton("Add Contact", new Color(40, 167, 69));
-        updateButton = createStyledButton("Update Contact", new Color(0, 123, 255));
-        softDeleteButton = createStyledButton("Soft Delete", new Color(255, 193, 7)); // Yellow for soft delete
-        restoreButton = createStyledButton("Restore Contact", new Color(23, 162, 184)); // Cyan for restore
-        clearButton = createStyledButton("Clear Form", new Color(108, 117, 125));
+        buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        addButton = createStyledButton(
+            "Add Contact",
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_END
+        );
+        updateButton = createStyledButton(
+            "Update Contact",
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
+        softDeleteButton = createStyledButton(
+            "Soft Delete",
+            PortfolioAdminApp.GRADIENT_ACCENT_ORANGE_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_ORANGE_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_ORANGE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_ORANGE_HOVER_END
+        );
+        restoreButton = createStyledButton(
+            "Restore Contact",
+            PortfolioAdminApp.GRADIENT_ACCENT_CYAN_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_CYAN_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_CYAN_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_CYAN_HOVER_END
+        );
+        clearButton = createStyledButton(
+            "Clear Form",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END
+        );
 
         addButton.addActionListener(e -> addContact());
         updateButton.addActionListener(e -> updateContact());
@@ -1587,7 +2011,9 @@ class ContactManagementPanel extends JPanel {
         buttonPanel.add(restoreButton);
         buttonPanel.add(clearButton);
 
-        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2; formPanel.add(buttonPanel, gbc);
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
+        gbc.insets = new Insets(20, 10, 10, 10);
+        formPanel.add(buttonPanel, gbc);
         add(formPanel, BorderLayout.SOUTH);
 
         loadContacts(); // Load data when panel is initialized
@@ -1596,44 +2022,65 @@ class ContactManagementPanel extends JPanel {
 
     /** Helper method to create a styled JTextField. */
     private JTextField createStyledTextField() {
-        JTextField field = new JTextField(20);
-        field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        JTextField field = new JTextField(25);
+        field.setFont(PortfolioAdminApp.FONT_BODY);
         field.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(new Color(180, 180, 180), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12)
         ));
         return field;
     }
 
-    /** Helper method to create a styled JButton. */
-    private JButton createStyledButton(String text, Color bgColor) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        button.setBackground(bgColor);
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setOpaque(true);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createEmptyBorder(8, 18, 8, 18));
-        button.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific
+    /** Helper method to create a styled JComboBox. */
+    private JComboBox<String> createStyledComboBox(String[] items) {
+        JComboBox<String> comboBox = new JComboBox<>(items);
+        comboBox.setFont(PortfolioAdminApp.FONT_BODY);
+        comboBox.setBackground(Color.WHITE);
+        comboBox.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
+        return comboBox;
+    }
+
+    /** Helper method to create a styled GradientButton. */
+    private GradientButton createStyledButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd) {
+        return new GradientButton(text, start, end, hoverStart, hoverEnd);
+    }
+
+    /** Helper method to create a styled back button with a subtle raised effect. */
+    private GradientButton createStyledBackButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd, ActionListener listener) {
+        GradientButton button = new GradientButton(text, start, end, hoverStart, hoverEnd);
+        button.setFont(PortfolioAdminApp.FONT_BUTTON);
+        button.setBorder(BorderFactory.createCompoundBorder(
+                new SoftBevelBorder(SoftBevelBorder.RAISED, new Color(220, 220, 220, 80), new Color(80, 80, 80, 80)),
+                new EmptyBorder(8, 15, 8, 15)
+        ));
+        button.addActionListener(listener);
         return button;
     }
 
-    /** Helper method to create a styled back button. */
-    private JButton createStyledBackButton(String text, ActionListener listener) {
-        JButton button = new JButton(text);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        button.setBackground(new Color(108, 117, 125)); // Grey
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setOpaque(true);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createEmptyBorder(8, 15, 8, 15));
-        button.putClientProperty("JButton.buttonType", "roundRect"); // Nimbus specific
-        button.addActionListener(listener);
-        return button;
+    /** Helper method to create a styled JLabel. */
+    private JLabel createStyledLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(PortfolioAdminApp.FONT_BODY);
+        label.setForeground(PortfolioAdminApp.TEXT_DARK);
+        return label;
+    }
+
+    /** Helper method to create a styled Titled Panel. */
+    private JPanel createStyledTitledPanel(String title, LayoutManager layout) {
+        JPanel panel = new JPanel(layout);
+        panel.setBorder(BorderFactory.createTitledBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                title,
+                TitledBorder.LEFT, TitledBorder.TOP,
+                PortfolioAdminApp.FONT_HEADER,
+                PortfolioAdminApp.TEXT_DARK
+        ));
+        panel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        panel.putClientProperty("JComponent.roundRect", true);
+        return panel;
     }
 
     /**
@@ -1714,11 +2161,14 @@ class ContactManagementPanel extends JPanel {
             return;
         }
 
-        String sql = "INSERT INTO contacts (platform, link, deleted) VALUES (?, ?, 0)";
+        // FIX: Changed 'value' to 'type' as per the user's screenshot showing an error related to 'type' column.
+        // This assumes the 'type' column in your 'contacts' table is intended to store the platform.
+        String sql = "INSERT INTO contacts (platform, link, type, deleted) VALUES (?, ?, ?, 0)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, platform);
             pstmt.setString(2, link);
+            pstmt.setString(3, platform); // Storing platform in the 'type' column
             pstmt.executeUpdate();
             JOptionPane.showMessageDialog(this, "Contact added successfully!");
             clearForm();
@@ -1746,12 +2196,15 @@ class ContactManagementPanel extends JPanel {
             return;
         }
 
-        String sql = "UPDATE contacts SET platform = ?, link = ? WHERE id = ?";
+        // FIX: Changed 'value' to 'type' as per the user's screenshot showing an.
+        // This assumes the 'type' column in your 'contacts' table is intended to store the platform.
+        String sql = "UPDATE contacts SET platform = ?, link = ?, type = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, platform);
             pstmt.setString(2, link);
-            pstmt.setInt(3, selectedContactId);
+            pstmt.setString(3, platform); // Updating 'type' column with the platform
+            pstmt.setInt(4, selectedContactId);
             pstmt.executeUpdate();
             JOptionPane.showMessageDialog(this, "Contact updated successfully!");
             clearForm();
@@ -1830,5 +2283,3 @@ class ContactManagementPanel extends JPanel {
         restoreButton.setEnabled(false);
     }
 }
-
-    
