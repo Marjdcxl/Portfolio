@@ -9,10 +9,8 @@
 
 body {
   font-family: "Poppins", sans-serif;
-  /* Added the diagonal background gradient as requested */
-  background: linear-gradient(to bottom right, #f8faff, #d9e7ff, #b5c7ed, #8ea5d4, #667ebf);
+  background-color: #f6f6f6; /* Light gray background for the body */
 }
-
 html {
   scroll-behavior: smooth;
 }
@@ -36,13 +34,16 @@ nav,
 }
 
 #desktop-nav {
-  background-color: #2C3E50; /* Dark blue background for the nav bar */
-  border-radius: 1rem; /* Rounded corners for the nav bar */
-  margin: 1.5rem 5rem; /* Margin around the nav bar to lift it from edges */
-  height: 8vh; /* Reduced height to match the image's appearance */
+  background-color: #e1e1e1; /* Dark blue background for the nav bar */
+  top: 0; /* Sticks to the top of the viewport */
+  width: 100%; /* Full width of the viewport */
+  height: 10vh; /* Fixed height for the nav bar */
+  position:fixed; /* Fixed position to stay on top during scroll */
+  display: flex; /* Use flexbox for layout */
   justify-content: space-around; /* Keeps elements spaced out */
   align-items: center; /* Vertically centers elements */
   padding: 0 2rem; /* Internal padding */
+  z-index: 1000; /* Ensures nav is above other content */
 }
 
 nav {
@@ -55,11 +56,12 @@ nav {
   gap: 2rem;
   list-style: none;
   font-size: 1.5rem;
+  font-weight: 500;
 }
 
 #desktop-nav .nav-links a {
   font-size: 1.25rem; /* Font size for navigation links */
-  color: #ECF0F1; /* Light text color for navigation links */
+  color: 	#111111; /* Light text color for navigation links */
   text-decoration: none;
   text-decoration-color: transparent; /* Ensure no initial underline */
 }
@@ -71,13 +73,19 @@ nav {
   text-decoration-color: #A7D9F7; /* Underline color matches hover text */
 }
 
+/* MODIFIED: Styling for the "Portfolio" logo to match nav links */
 .logo {
-  font-size: 1.5rem;
-  color: #ECF0F1; 
+  font-size: 1.25rem; /* Match nav link font size */
+  color: #111111; /* Match nav link text color */
+  font-weight: 500; /* Match nav link font weight */
+  text-decoration: none; /* Ensure no initial underline */
+  text-decoration-color: transparent;
+  transition: all 300ms ease; /* Apply transition for smooth hover */
 }
 
 .logo:hover {
-  cursor: default;
+  cursor: pointer; /* Change cursor to pointer on hover */
+  /* Removed color and text-decoration to prevent blue color and underline on hover */
 }
 
 /* HAMBURGER MENU */
@@ -172,6 +180,7 @@ section {
 
 .section-container {
   display: flex;
+  margin-top: 2rem;
 }
 
 /* PROFILE SECTION */
@@ -189,16 +198,13 @@ section {
   width: 400px;
   margin: 5rem auto;
   border-radius: 2rem;
+  
 }
 
 #socials-container .icon {
-  width: 2.5rem; /* Consistent with contact icons */
+  width: 2.5rem;
   height: 2.5rem;
-}
-
-#socials-container .icon[src="./assets/facebook.png"] {
-  width: 3rem; /* Set to the same size for now, but can be changed independently */
-  height: 3rem;
+  margin-top: 1rem ;
 }
 
 .section__text {
@@ -208,7 +214,7 @@ section {
 
 .section__text__p1 {
   font-weight: 600;
-  text-align: center; 
+  text-align: center;
 }
 
 .section__text__p2 {
@@ -280,7 +286,6 @@ section {
 
 #about {
   position: relative;
-  background: linear-gradient(to bottom right, #ECF0F1 65%, #2C3E50 35%);
   height: fit-content
 }
 
@@ -373,8 +378,8 @@ article {
 
 article .icon {
   cursor: default;
-  width: 1rem; /* Smaller size for checkmarks */
-  height: 1rem;
+  width: 2rem; /* Smaller size for checkmarks */
+  height: 2rem;
 }
 
 /* PROJECTS SECTION */
@@ -402,7 +407,9 @@ article .icon {
 .project-btn {
   color: black;
   border-color: rgb(163, 163, 163);
+  margin-top: 1rem;
 }
+
 
 /* CONTACT */
 
@@ -438,7 +445,7 @@ article .icon {
 
 .contact-icon {
   cursor: default;
-  height: 2.5rem;
+  height: 2rem;
 }
 
 .email-icon {
@@ -449,9 +456,7 @@ article .icon {
 
 footer {
   /* Applying similar styles to the desktop nav bar for the footer */
-  background-color: #2C3E50; /* Dark blue background */
-  border-radius: 1rem; /* Rounded corners */
-  margin: 1.5rem 5rem; /* Margin to lift it from edges */
+  background-color: #e1e1e1; /* Dark blue background */
   height: fit-content; /* Adjust height based on content */
   padding: 1.5rem 2rem; /* Increased padding for better spacing */
   display: flex; /* Use flexbox for internal alignment */
@@ -459,7 +464,7 @@ footer {
   justify-content: center; /* Center content vertically */
   align-items: center; /* Center content horizontally */
   gap: 1rem; /* Space between nav links and copyright */
-  color: #ECF0F1; /* Light text color for copyright */
+  color: #111111; /* Light text color for copyright */
 }
 
 /* Styling for the navigation links within the footer */
@@ -478,13 +483,13 @@ footer .nav-links {
 }
 
 footer .nav-links a {
-  color: #ECF0F1; /* Light text color for footer navigation links */
+  color:#111111; /* Light text color for footer navigation links */
   text-decoration: none;
   text-decoration-color: transparent;
 }
 
 footer .nav-links a:hover {
-  color: #A7D9F7; /* Lighter blue on hover */
+  color: #111111; /* Lighter blue on hover */
   text-decoration: underline;
   text-underline-offset: 0.5rem; /* Smaller underline offset for footer */
   text-decoration-color: #A7D9F7;
@@ -494,7 +499,7 @@ footer p {
   text-align: center;
   margin: 0; /* Remove default margin */
   font-size: 0.9rem; /* Smaller font for copyright text */
-  color: #B0BEC5; /* Slightly muted light color for copyright */
+  color: #3c3c3c; /* Slightly muted light color for copyright */
 }
 
 /* MEDIA QUERIES (from original mediaqueries.css, integrated here) */
