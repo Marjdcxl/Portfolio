@@ -89,27 +89,32 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Portfolio</title>
+    <title>Benjie Portfolio</title>
     <link rel="stylesheet" href="style.css" />
     <!-- mediaqueries.css content is now merged into style.css -->
   </head>
   <body>
     <!-- Desktop Navigation -->
     <nav id="desktop-nav">
-      <div class="logo">Benjie Juabot</div>
+      <script src="script.js"></script>
+      <div class="logo">
+        <a href="#">Portfolio</a> <!-- Added <a> tag with href="#" for scroll to top -->
+      </div>
       <div>
         <ul class="nav-links">
           <li><a href="#about">About</a></li>
           <li><a href="#experience">Experience</a></li>
           <li><a href="#projects">Projects</a></li>
-          <li><a href="#contact">Contact</a></li>
         </ul>
       </div>
     </nav>
 
     <!-- Hamburger Navigation for Mobile -->
     <nav id="hamburger-nav">
-      <div class="logo">Benjie Juabot</div>
+      <script src="script.js"></script>
+      <div class="logo">
+        <a href="#">Portfolio</a> <!-- Added <a> tag with href="#" for scroll to top -->
+      </div>
       <div class="hamburger-menu">
         <div class="hamburger-icon" onclick="toggleMenu()">
           <span></span>
@@ -120,7 +125,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
           <li><a href="#about" onclick="toggleMenu()">About</a></li>
           <li><a href="#experience" onclick="toggleMenu()">Experience</a></li>
           <li><a href="#projects" onclick="toggleMenu()">Projects</a></li>
-          <li><a href="#contact" onclick="toggleMenu()">Contact</a></li>
         </div>
       </div>
     </nav>
@@ -213,13 +217,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
           </div>
         </div>
       </div>
-      <!-- Assuming arrow.png is in assets folder -->
-      <img
-        src="./assets/arrow.png"
-        alt="Arrow icon"
-        class="icon arrow"
-        onclick="location.href='./#experience'"
-      />
     </section>
 
     <!-- Experience (Skills) Section -->
@@ -251,9 +248,7 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
               <?php endif; ?>
             </div>
           </div>
-          <!-- You can add another details-container here for a second column of skills if needed -->
-          <!-- For example, if you categorize skills as Frontend/Backend -->
-          <!-- <div class="details-container">
+          <div class="details-container">
             <h2 class="experience-sub-title">Backend Development</h2>
             <div class="article-container">
               <article>
@@ -264,16 +259,9 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
                 </div>
               </article>
             </div>
-          </div> -->
+          </div>
         </div>
       </div>
-      <!-- Assuming arrow.png is in assets folder -->
-      <img
-        src="./assets/arrow.png"
-        alt="Arrow icon"
-        class="icon arrow"
-        onclick="location.href='./#projects'"
-      />
     </section>
 
     <!-- Projects Section -->
@@ -328,13 +316,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
           <?php endif; ?>
         </div>
       </div>
-      <!-- Assuming arrow.png is in assets folder -->
-      <img
-        src="./assets/arrow.png"
-        alt="Arrow icon"
-        class="icon arrow"
-        onclick="location.href='./#contact'"
-      />
     </section>
 
     <!-- Contact Section -->
@@ -415,13 +396,22 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
         icon.classList.toggle("open");
       }
 
-      // Optional: Smooth scroll for internal links (from your latest index.php, adapted)
+      // Smooth scroll for internal links, now correctly handles href="#"
       document.querySelectorAll('a[href^="#"]').forEach(anchor => {
           anchor.addEventListener('click', function (e) {
-              e.preventDefault();
-              document.querySelector(this.getAttribute('href')).scrollIntoView({
-                  behavior: 'smooth'
-              });
+              const href = this.getAttribute('href');
+              if (href === '#') { // If href is just "#", scroll to the very top
+                  e.preventDefault();
+                  window.scrollTo({
+                      top: 0,
+                      behavior: 'smooth'
+                  });
+              } else { // Otherwise, scroll to the specific section
+                  e.preventDefault();
+                  document.querySelector(href).scrollIntoView({
+                      behavior: 'smooth'
+                  });
+              }
           });
       });
     </script>
