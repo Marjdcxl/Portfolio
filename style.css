@@ -34,16 +34,22 @@ nav,
 }
 
 #desktop-nav {
-  background-color: #e1e1e1; /* Dark blue background for the nav bar */
-  top: 0; /* Sticks to the top of the viewport */
+  background-color: #e1e1e1; 
+  top: 0; 
   width: 100%; /* Full width of the viewport */
   height: 10vh; /* Fixed height for the nav bar */
-  position:fixed; /* Fixed position to stay on top during scroll */
+  position: fixed; /* Changed from absolute to fixed */
   display: flex; /* Use flexbox for layout */
   justify-content: space-around; /* Keeps elements spaced out */
   align-items: center; /* Vertically centers elements */
   padding: 0 2rem; /* Internal padding */
   z-index: 1000; /* Ensures nav is above other content */
+  transition: top 0.3s ease-out; /* Added transition for smooth slide effect */
+}
+
+/* New CSS class to hide the desktop navigation bar */
+#desktop-nav.navbar-hidden {
+    top: -10vh; /* Moves the nav bar completely out of view upwards */
 }
 
 nav {
@@ -75,17 +81,28 @@ nav {
 
 /* MODIFIED: Styling for the "Portfolio" logo to match nav links */
 .logo {
-  font-size: 1.25rem; /* Match nav link font size */
-  color: #111111; /* Match nav link text color */
-  font-weight: 500; /* Match nav link font weight */
-  text-decoration: none; /* Ensure no initial underline */
-  text-decoration-color: transparent;
+  /* These styles apply to the div containing the link, not the link itself */
+  font-size: 1.5rem; /* Match nav link font size */
+  font-weight: 1000; /* Match nav link font weight */
   transition: all 300ms ease; /* Apply transition for smooth hover */
+}
+
+/* ADD THIS SECTION for the 'Portfolio' link */
+.logo a { /* Targets the anchor tag within the logo class */
+  color: #111111; /* Set the text color to black/dark grey */
+  text-decoration: none; /* Remove the underline */
+  text-decoration-color: transparent; /* Ensure no initial underline */
+}
+
+.logo a:hover { /* Optional: Add a hover effect for the 'Portfolio' link */
+  color: #A7D9F7; /* Lighter blue on hover, matching other nav links */
+  text-decoration: underline;
+  text-underline-offset: 1rem;
+  text-decoration-color: #A7D9F7;
 }
 
 .logo:hover {
   cursor: pointer; /* Change cursor to pointer on hover */
-  /* Removed color and text-decoration to prevent blue color and underline on hover */
 }
 
 /* HAMBURGER MENU */
@@ -205,6 +222,7 @@ section {
   width: 2.5rem;
   height: 2.5rem;
   margin-top: 1rem ;
+  cursor : pointer;
 }
 
 .section__text {
@@ -443,6 +461,21 @@ article .icon {
   font-size: larger;
 }
 
+/* ADD OR MODIFY THESE STYLES FOR THE CONTACT LINKS */
+.contact-info-container a {
+  color: #111111; /* Set the text color to a dark grey/black */
+  text-decoration: none; /* Remove the underline */
+  transition: all 300ms ease; /* Smooth transition for hover effects */
+}
+
+.contact-info-container a:hover {
+  color: #A7D9F7; /* Lighter blue on hover, matching other nav links */
+  text-decoration: underline; /* Add underline on hover */
+  text-underline-offset: 0.25rem; /* Adjust as needed */
+  text-decoration-color: #A7D9F7; /* Underline color matches hover text */
+}
+
+
 .contact-icon {
   cursor: default;
   height: 2rem;
@@ -505,10 +538,10 @@ footer p {
 /* MEDIA QUERIES (from original mediaqueries.css, integrated here) */
 @media screen and (max-width: 1200px) {
   #desktop-nav {
-    display: none;
+    display: none; /* Desktop nav is hidden on smaller screens */
   }
   #hamburger-nav {
-    display: flex;
+    display: flex; /* Hamburger nav is shown */
   }
   #profile,
   .section-container {
