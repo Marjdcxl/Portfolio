@@ -22,6 +22,11 @@ import java.sql.*;
 import java.util.Base64;
 import javax.imageio.ImageIO;
 import java.awt.geom.Point2D; // For GradientPaint
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections; // For sorting categories
+import java.util.UUID; // NEW: Added for generating unique filenames for images
+
 
 /**
  * Custom JPanel for drawing a linear gradient background.
@@ -203,6 +208,16 @@ public class PortfolioAdminApp extends JFrame {
     public static final Font FONT_BUTTON = new Font("Arial", Font.BOLD, 18); // Button text
     public static final Font FONT_SMALL_ITALIC = new Font("Arial", Font.ITALIC, 14); // Small italic text
 
+    // --- IMPORTANT: Configure these paths and URLs for your web server ---
+    // This is the absolute file system path on your server where images will be saved.
+    // Example for Windows XAMPP: "C:\\xampp\\htdocs\\your_portfolio_site\\assets\\project_images\\"
+    // Example for Linux/Apache: "/var/www/html/your_portfolio_site/assets/project_images/"
+    public static final String PROJECT_IMAGE_BASE_DIR = "C:\\xampp\\htdocs\\your_portfolio_site\\assets\\project_images\\"; // <--- **CHANGE THIS**
+
+    // This is the public web URL that corresponds to the directory above.
+    // Example: "http://localhost/your_portfolio_site/assets/project_images/" or "http://yourdomain.com/assets/project_images/"
+    public static final String PROJECT_IMAGE_BASE_URL = "http://localhost/your_portfolio_site/assets/project_images/"; // <--- **CHANGE THIS**
+
 
     /**
      * Constructor for the PortfolioAdminApp.
@@ -241,6 +256,8 @@ public class PortfolioAdminApp extends JFrame {
 
         // Show the login panel initially
         cardLayout.show(mainPanel, "Login");
+
+        createTables(); // Ensure database tables are created on app startup
     }
 
     /**
@@ -264,13 +281,13 @@ public class PortfolioAdminApp extends JFrame {
     }
 
     /**
-     * Switches to the Skill Management panel.
+     * Switches to the Experience Management panel (formerly Skill Management).
      */
-    public void showSkillManagement() {
-        SkillManagementPanel skillPanel = new SkillManagementPanel(this);
-        skillPanel.setOpaque(false); // Make skillPanel transparent
-        mainPanel.add(skillPanel, "Skills");
-        cardLayout.show(mainPanel, "Skills");
+    public void showExperienceManagement() {
+        ExperienceManagementPanel experiencePanel = new ExperienceManagementPanel(this);
+        experiencePanel.setOpaque(false); // Make experiencePanel transparent
+        mainPanel.add(experiencePanel, "Experience");
+        cardLayout.show(mainPanel, "Experience");
     }
 
     /**
@@ -313,6 +330,71 @@ public class PortfolioAdminApp extends JFrame {
             new PortfolioAdminApp().setVisible(true);
         });
     }
+
+    /**
+     * Ensures necessary database tables exist.
+     */
+    private void createTables() {
+        try (Connection conn = DatabaseManager.getConnection();
+             Statement stmt = conn.createStatement()) {
+
+            // Create 'users' table if it doesn't exist (for login)
+            stmt.execute("CREATE TABLE IF NOT EXISTS users (" +
+                         "id INT AUTO_INCREMENT PRIMARY KEY," +
+                         "username VARCHAR(50) NOT NULL UNIQUE," +
+                         "password VARCHAR(255) NOT NULL" +
+                         ")");
+            // Add a default admin user if no users exist
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM users")) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    String insertUserSql = "INSERT INTO users (username, password) VALUES (?, ?)";
+                    try (PreparedStatement pstmt = conn.prepareStatement(insertUserSql)) {
+                        pstmt.setString(1, "admin");
+                        pstmt.setString(2, DatabaseManager.hashPassword("admin123")); // Hash the default password
+                        pstmt.executeUpdate();
+                        System.out.println("Default admin user 'admin' with password 'admin123' created.");
+                    }
+                }
+            }
+
+
+            // Create 'skills' table (Updated to include 'category')
+            stmt.execute("CREATE TABLE IF NOT EXISTS skills (" +
+                         "id INT AUTO_INCREMENT PRIMARY KEY," +
+                         "name VARCHAR(255) NOT NULL," +
+                         "level VARCHAR(20) NOT NULL," +
+                         "category VARCHAR(100) DEFAULT 'General'" + // Added category column
+                         ")");
+
+            // Create 'about' table
+            stmt.execute("CREATE TABLE IF NOT EXISTS about (" +
+                         "id INT AUTO_INCREMENT PRIMARY KEY," +
+                         "content TEXT NOT NULL" +
+                         ")");
+
+            // Create 'projects' table (Updated to use image_url VARCHAR for storing URLs)
+            stmt.execute("CREATE TABLE IF NOT EXISTS projects (" +
+                         "id INT AUTO_INCREMENT PRIMARY KEY," +
+                         "title VARCHAR(255) NOT NULL," +
+                         "description TEXT NOT NULL," +
+                         "image_url VARCHAR(255) DEFAULT NULL," + // Changed to VARCHAR
+                         "link VARCHAR(255) DEFAULT NULL," +
+                         "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                         ")");
+
+            // Create 'contacts' table (Updated to include 'deleted' flag)
+            stmt.execute("CREATE TABLE IF NOT EXISTS contacts (" +
+                         "id INT AUTO_INCREMENT PRIMARY KEY," +
+                         "platform VARCHAR(100) DEFAULT NULL," +
+                         "link VARCHAR(255) DEFAULT NULL," +
+                         "deleted TINYINT(1) NOT NULL DEFAULT 0" + // Added deleted column for soft delete
+                         ")");
+
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Database error during table creation: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
 }
 
 /**
@@ -320,9 +402,12 @@ public class PortfolioAdminApp extends JFrame {
  * Uses JDBC to interact with a MySQL database.
  */
 class DatabaseManager {
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/portfolio_db";
-    private static final String DB_USER = "root"; // Your database username
-    private static final String DB_PASSWORD = ""; // Your database password
+    // NOTE: For security and best practice, do not hardcode sensitive information
+    // like database credentials in production applications. Use environment variables
+    // or a secure configuration mechanism.
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/portfolio_db"; // Your database URL
+    private static final String DB_USER = "admin"; // Your database username - adjusted to match first file
+    private static final String DB_PASSWORD = "admin123"; // Your database password - adjusted to match first file
 
     /**
      * Establishes a connection to the database.
@@ -396,19 +481,20 @@ class DatabaseManager {
 
 /**
  * Represents a Project entity with properties corresponding to the 'projects' table.
+ * Now uses imageUrl for image paths.
  */
 class Project {
     private int id;
     private String title;
     private String description;
-    private byte[] image; // changed from imageUrl to image bytes for direct image upload
+    private String imageUrl;
     private String link;
 
-    public Project(int id, String title, String description, byte[] image, String link) {
+    public Project(int id, String title, String description, String imageUrl, String link) {
         this.id = id;
         this.title = title;
         this.description = description;
-        this.image = image;
+        this.imageUrl = imageUrl;
         this.link = link;
     }
 
@@ -419,24 +505,27 @@ class Project {
     public void setTitle(String title) { this.title = title; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
-    public byte[] getImage() { return image; }
-    public void setImage(byte[] image) { this.image = image; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public String getLink() { return link; }
     public void setLink(String link) { this.link = link; }
 }
 
 /**
- * Represents a Skill entity with properties corresponding to the 'skills' table.
+ * Represents an Experience entity with properties corresponding to the 'skills' table,
+ * including a category.
  */
-class Skill {
+class Experience {
     private int id;
     private String name;
     private String level;
+    private String category; // New field for skill category
 
-    public Skill(int id, String name, String level) {
+    public Experience(int id, String name, String level, String category) {
         this.id = id;
         this.name = name;
         this.level = level;
+        this.category = category;
     }
 
     // Getters and Setters
@@ -446,25 +535,25 @@ class Skill {
     public void setName(String name) { this.name = name; }
     public String getLevel() { return level; }
     public void setLevel(String level) { this.level = level; }
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
 }
 
 /**
- * Represents a Contact entity with properties corresponding to the 'contacts' table.
+ * Represents a Contact entity with properties corresponding to the 'contacts' table,
+ * including a deleted flag.
  */
 class Contact {
     private int id;
     private String platform;
     private String link;
     private boolean deleted; // 0 for not deleted, 1 for deleted
-    // Assuming 'value' column in DB is intended to store the 'platform' type for the link
-    private String value; 
 
-    public Contact(int id, String platform, String link, boolean deleted, String value) {
+    public Contact(int id, String platform, String link, boolean deleted) {
         this.id = id;
         this.platform = platform;
         this.link = link;
         this.deleted = deleted;
-        this.value = value;
     }
 
     // Getters and Setters
@@ -476,8 +565,6 @@ class Contact {
     public void setLink(String link) { this.link = link; }
     public boolean isDeleted() { return deleted; }
     public void setDeleted(boolean deleted) { this.deleted = deleted; }
-    public String getValue() { return value; }
-    public void setValue(String value) { this.value = value; }
 }
 
 /**
@@ -736,11 +823,11 @@ class AdminDashboardPanel extends JPanel {
         gbc.gridy = 1;
         add(portfolioButton, gbc);
 
-        // Skills Button
-        JButton skillsButton = createDashboardButton("Manage Skills", e -> parentFrame.showSkillManagement());
+        // Experience Button (formerly Skills)
+        JButton experienceButton = createDashboardButton("Manage Experience", e -> parentFrame.showExperienceManagement());
         gbc.gridx = 1;
         gbc.gridy = 1;
-        add(skillsButton, gbc);
+        add(experienceButton, gbc);
 
         // About Me Button
         JButton aboutButton = createDashboardButton("Manage About Me", e -> parentFrame.showAboutManagement());
@@ -784,6 +871,7 @@ class AdminDashboardPanel extends JPanel {
 /**
  * Panel for managing portfolio projects.
  * Allows viewing, adding, editing, and deleting projects.
+ * Handles image file upload to server and stores URL in DB.
  */
 class ProjectManagementPanel extends JPanel {
     private PortfolioAdminApp parentFrame;
@@ -794,7 +882,7 @@ class ProjectManagementPanel extends JPanel {
     private JButton addButton, updateButton, deleteButton;
     private JButton uploadImageButton;
     private JLabel imagePreviewLabel; // Image preview for uploaded image
-    private BufferedImage uploadedImage; // Store uploaded image
+    private File selectedImageFile; // Stores the local file selected by JFileChooser
     private int selectedProjectId = -1; // To store the ID of the selected project for editing/deleting
     private JScrollPane scrollPane; // Made scrollPane a field to control its visibility
 
@@ -834,7 +922,7 @@ class ProjectManagementPanel extends JPanel {
         contentAreaPanel.setOpaque(false); // Make transparent
 
         // --- Center Panel: Table of Projects ---
-        String[] columnNames = {"ID", "Title", "Description", "Link"};
+        String[] columnNames = {"ID", "Title", "Description", "Image URL", "Link"}; // Added "Image URL"
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -848,6 +936,7 @@ class ProjectManagementPanel extends JPanel {
                 displaySelectedProject();
             }
         });
+
         // Table styling
         projectTable.setFont(PortfolioAdminApp.FONT_BODY);
         projectTable.setRowHeight(30); // Increased row height
@@ -869,7 +958,6 @@ class ProjectManagementPanel extends JPanel {
                 return c;
             }
         });
-
 
         scrollPane = new JScrollPane(projectTable);
         scrollPane.setBorder(BorderFactory.createCompoundBorder(
@@ -1000,7 +1088,7 @@ class ProjectManagementPanel extends JPanel {
         area.setFont(PortfolioAdminApp.FONT_BODY);
         area.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
-                new EmptyBorder(8, 12, 8, 12) // Increased padding
+                new EmptyBorder(8, 12, 8, 12)
         ));
         return area;
     }
@@ -1050,7 +1138,7 @@ class ProjectManagementPanel extends JPanel {
      */
     private void loadProjects() {
         tableModel.setRowCount(0); // Clear existing data
-        String sql = "SELECT id, title, description, link FROM projects ORDER BY created_at DESC";
+        String sql = "SELECT id, title, description, image_url, link FROM projects ORDER BY created_at DESC";
         try (Connection conn = DatabaseManager.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -1059,8 +1147,9 @@ class ProjectManagementPanel extends JPanel {
                 int id = rs.getInt("id");
                 String title = rs.getString("title");
                 String description = rs.getString("description");
+                String imageUrl = rs.getString("image_url");
                 String link = rs.getString("link");
-                tableModel.addRow(new Object[]{id, title, description, link});
+                tableModel.addRow(new Object[]{id, title, description, imageUrl, link});
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -1077,14 +1166,27 @@ class ProjectManagementPanel extends JPanel {
             selectedProjectId = (int) tableModel.getValueAt(selectedRow, 0);
             titleField.setText((String) tableModel.getValueAt(selectedRow, 1));
             descriptionArea.setText((String) tableModel.getValueAt(selectedRow, 2));
-            linkField.setText((String) tableModel.getValueAt(selectedRow, 3));
+            linkField.setText((String) tableModel.getValueAt(selectedRow, 4)); // Column 4 is 'link'
 
-            // Reset uploadedImage and image preview when a project is selected, since we do not retrieve image bytes here
-            // If you need to display the existing image, you would need to fetch it from the DB.
-            // For simplicity, we assume image is re-uploaded if changed.
-            uploadedImage = null;
-            imagePreviewLabel.setIcon(null);
-            imagePreviewLabel.setText("No Image");
+            // Load image from URL for preview
+            String imageUrl = (String) tableModel.getValueAt(selectedRow, 3); // Column 3 is 'image_url'
+            if (imageUrl != null && !imageUrl.isEmpty()) {
+                try {
+                    // Fetch image from the URL to display in the preview label
+                    BufferedImage img = ImageIO.read(new java.net.URL(imageUrl));
+                    displayImagePreview(img);
+                    selectedImageFile = null; // Clear any locally selected file if loading from DB
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    imagePreviewLabel.setIcon(null);
+                    imagePreviewLabel.setText("Error loading image from URL");
+                    selectedImageFile = null;
+                }
+            } else {
+                imagePreviewLabel.setIcon(null);
+                imagePreviewLabel.setText("No Image");
+                selectedImageFile = null;
+            }
 
             addButton.setEnabled(false); // Disable add when editing
             updateButton.setEnabled(true);
@@ -1096,37 +1198,71 @@ class ProjectManagementPanel extends JPanel {
      * Adds a new project to the database.
      */
     private void addProject() {
-        String title = titleField.getText();
-        String description = descriptionArea.getText();
-        String link = linkField.getText();
+        String title = titleField.getText().trim();
+        String description = descriptionArea.getText().trim();
+        String link = linkField.getText().trim();
 
-        if (title.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Title cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+        if (title.isEmpty() || description.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Title and Description cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String sql = "INSERT INTO projects (title, description, image, link) VALUES (?, ?, ?, ?)";
+        String imageUrlForDb = null; // This will store the final URL to save
+        if (selectedImageFile != null && selectedImageFile.exists()) {
+            try {
+                String originalFileName = selectedImageFile.getName();
+                String fileExtension = "";
+                int dotIndex = originalFileName.lastIndexOf('.');
+                if (dotIndex > 0) {
+                    fileExtension = originalFileName.substring(dotIndex + 1);
+                }
+                // Generate a unique filename using UUID to prevent collisions
+                String uniqueFileName = UUID.randomUUID().toString() + (fileExtension.isEmpty() ? "" : "." + fileExtension);
+
+                File destinationFile = new File(PortfolioAdminApp.PROJECT_IMAGE_BASE_DIR, uniqueFileName);
+
+                // Ensure the destination directory exists
+                File parentDir = destinationFile.getParentFile();
+                if (!parentDir.exists()) {
+                    parentDir.mkdirs(); // Create directories if they don't exist
+                }
+
+                // Read the image and write it to the destination file on the server
+                BufferedImage imageToSave = ImageIO.read(selectedImageFile);
+                ImageIO.write(imageToSave, fileExtension, destinationFile);
+
+                // Construct the public URL for the image
+                imageUrlForDb = PortfolioAdminApp.PROJECT_IMAGE_BASE_URL + uniqueFileName;
+
+                JOptionPane.showMessageDialog(this, "Image uploaded to server: " + destinationFile.getAbsolutePath(), "Image Upload Success", JOptionPane.INFORMATION_MESSAGE);
+
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error saving image to server: " + ex.getMessage(), "Image Save Error", JOptionPane.ERROR_MESSAGE);
+                imageUrlForDb = null; // Ensure no invalid URL is saved if upload failed
+            }
+        }
+
+        String sql = "INSERT INTO projects (title, description, image_url, link) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setString(1, title);
             pstmt.setString(2, description);
-            if (uploadedImage != null) {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                ImageIO.write(uploadedImage, "png", baos);
-                pstmt.setBytes(3, baos.toByteArray());
-            } else {
-                pstmt.setNull(3, Types.BLOB);
+            pstmt.setString(3, imageUrlForDb); // Set the image URL here
+            pstmt.setString(4, link.isEmpty() ? null : link); // Store null if link is empty
+
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        int id = generatedKeys.getInt(1);
+                        tableModel.addRow(new Object[]{id, title, description, imageUrlForDb, link});
+                        JOptionPane.showMessageDialog(this, "Project added successfully!");
+                        clearForm();
+                    }
+                }
             }
-            if (link == null || link.trim().isEmpty()) {
-                pstmt.setNull(4, Types.VARCHAR);
-            } else {
-                pstmt.setString(4, link);
-            }
-            pstmt.executeUpdate();
-            JOptionPane.showMessageDialog(this, "Project added successfully!");
-            clearForm();
-            loadProjects(); // Refresh table
-        } catch (SQLException | IOException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Error adding project: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -1141,46 +1277,63 @@ class ProjectManagementPanel extends JPanel {
             return;
         }
 
-        String title = titleField.getText();
-        String description = descriptionArea.getText();
-        String link = linkField.getText();
+        String title = titleField.getText().trim();
+        String description = descriptionArea.getText().trim();
+        String link = linkField.getText().trim();
 
-        if (title.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Title cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+        if (title.isEmpty() || description.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Title and Description cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String sql;
-        boolean hasImage = uploadedImage != null;
-        if (hasImage) {
-            sql = "UPDATE projects SET title = ?, description = ?, image = ?, link = ? WHERE id = ?";
-        } else {
-            // If no new image is uploaded, we update title, description, and link only.
-            // The existing image in the DB remains.
-            sql = "UPDATE projects SET title = ?, description = ?, link = ? WHERE id = ?";
+        // Get the existing image URL from the table model (if no new image is selected)
+        String imageUrlForDb = (String) tableModel.getValueAt(projectTable.getSelectedRow(), 3);
+
+        // If a new image file is selected, process it
+        if (selectedImageFile != null && selectedImageFile.exists()) {
+            try {
+                String originalFileName = selectedImageFile.getName();
+                String fileExtension = "";
+                int dotIndex = originalFileName.lastIndexOf('.');
+                if (dotIndex > 0) {
+                    fileExtension = originalFileName.substring(dotIndex + 1);
+                }
+                String uniqueFileName = UUID.randomUUID().toString() + (fileExtension.isEmpty() ? "" : "." + fileExtension);
+
+                File destinationFile = new File(PortfolioAdminApp.PROJECT_IMAGE_BASE_DIR, uniqueFileName);
+                File parentDir = destinationFile.getParentFile();
+                if (!parentDir.exists()) {
+                    parentDir.mkdirs();
+                }
+
+                BufferedImage imageToSave = ImageIO.read(selectedImageFile);
+                ImageIO.write(imageToSave, fileExtension, destinationFile);
+
+                imageUrlForDb = PortfolioAdminApp.PROJECT_IMAGE_BASE_URL + uniqueFileName; // Use the new URL
+                JOptionPane.showMessageDialog(this, "Image updated on server: " + destinationFile.getAbsolutePath(), "Image Upload Success", JOptionPane.INFORMATION_MESSAGE);
+
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error updating image on server: " + ex.getMessage(), "Image Save Error", JOptionPane.ERROR_MESSAGE);
+                // Decide if you want to proceed without updating the image URL or stop
+                // For now, it will keep the old URL if this fails.
+            }
         }
 
+        String sql = "UPDATE projects SET title = ?, description = ?, image_url = ?, link = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, title);
             pstmt.setString(2, description);
-            int paramIndex = 3;
-            if (hasImage) {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                ImageIO.write(uploadedImage, "png", baos);
-                pstmt.setBytes(paramIndex++, baos.toByteArray());
-            }
-            if (link == null || link.trim().isEmpty()) {
-                pstmt.setNull(paramIndex++, Types.VARCHAR);
-            } else {
-                pstmt.setString(paramIndex++, link);
-            }
-            pstmt.setInt(paramIndex, selectedProjectId);
+            pstmt.setString(3, imageUrlForDb); // Set the image URL
+            pstmt.setString(4, link.isEmpty() ? null : link);
+            pstmt.setInt(5, selectedProjectId);
             pstmt.executeUpdate();
+
             JOptionPane.showMessageDialog(this, "Project updated successfully!");
+            loadProjects(); // Reload all projects to update the table
             clearForm();
-            loadProjects(); // Refresh table
-        } catch (SQLException | IOException e) {
+        } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Error updating project: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -1195,7 +1348,7 @@ class ProjectManagementPanel extends JPanel {
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this project?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this project? (Note: Image file on server will NOT be deleted automatically)", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             String sql = "DELETE FROM projects WHERE id = ?";
             try (Connection conn = DatabaseManager.getConnection();
@@ -1219,14 +1372,14 @@ class ProjectManagementPanel extends JPanel {
         titleField.setText("");
         descriptionArea.setText("");
         linkField.setText("");
-        uploadedImage = null;
+        imagePreviewLabel.setIcon(null); // Clear image preview
+        imagePreviewLabel.setText("No Image"); // Reset text
+        selectedImageFile = null; // Clear selected file
         selectedProjectId = -1;
         projectTable.clearSelection(); // Deselect row
         addButton.setEnabled(true);
         updateButton.setEnabled(false);
         deleteButton.setEnabled(false);
-        imagePreviewLabel.setIcon(null); // Clear image preview
-        imagePreviewLabel.setText("No Image"); // Reset text
     }
 
     /**
@@ -1240,51 +1393,85 @@ class ProjectManagementPanel extends JPanel {
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
             try {
-                uploadedImage = ImageIO.read(selectedFile);
-                ImageIcon icon = new ImageIcon(uploadedImage.getScaledInstance(
-                        imagePreviewLabel.getWidth(), imagePreviewLabel.getHeight(), Image.SCALE_SMOOTH));
-                imagePreviewLabel.setIcon(icon);
-                imagePreviewLabel.setText(""); // Clear text if image loads successfully
+                BufferedImage originalImage = ImageIO.read(selectedFile);
+                if (originalImage != null) {
+                    selectedImageFile = selectedFile; // Store the selected file
+                    displayImagePreview(originalImage);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Could not read image file.", "File Error", JOptionPane.ERROR_MESSAGE);
+                    selectedImageFile = null;
+                }
             } catch (IOException e) {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(this, "Error loading image: " + e.getMessage(), "Image Error", JOptionPane.ERROR_MESSAGE);
+                selectedImageFile = null;
             }
         }
+    }
+
+    /**
+     * Displays a scaled image preview in the imagePreviewLabel.
+     * @param image The BufferedImage to display.
+     */
+    private void displayImagePreview(BufferedImage image) {
+        if (image == null) {
+            imagePreviewLabel.setIcon(null);
+            imagePreviewLabel.setText("No Image");
+            return;
+        }
+        // Scale image to fit the label
+        int labelWidth = imagePreviewLabel.getWidth() > 0 ? imagePreviewLabel.getWidth() : 200;
+        int labelHeight = imagePreviewLabel.getHeight() > 0 ? imagePreviewLabel.getHeight() : 120;
+
+        Image scaledImage = image.getScaledInstance(labelWidth, labelHeight, Image.SCALE_SMOOTH);
+        imagePreviewLabel.setIcon(new ImageIcon(scaledImage));
+        imagePreviewLabel.setText(""); // Clear text when image is present
     }
 }
 
 /**
- * Panel for managing skills.
- * Allows viewing, adding, editing, and deleting skills.
+ * Panel for managing skills, now renamed to Experience, with categorization.
+ * Allows viewing, adding, editing, and deleting experience entries within categories.
  */
-class SkillManagementPanel extends JPanel {
+class ExperienceManagementPanel extends JPanel {
     private PortfolioAdminApp parentFrame;
-    private DefaultTableModel tableModel;
-    private JTable skillTable;
-    private JComboBox<String> skillComboBox;
-    private JComboBox<String> levelComboBox;
-    private JButton addButton, updateButton, deleteButton;
-    private int selectedSkillId = -1;
+    private JTabbedPane tabbedPane;
+    private JTextField skillNameField; // Text field for skill name
+    private JComboBox<String> levelComboBox; // Combo box for level
+    // This array now only contains the predefined levels, categories are dynamic
+    private String[] levels = {"Beginner", "Intermediate", "Expert", "Master"};
+
+    // New UI components for dynamic category management
+    private JTextField newCategoryNameField;
+    private JButton createCategoryButton;
+    private JButton deleteCategoryButton;
+    private JComboBox<String> categorySelectorForRenameDelete; // To select category to delete
+
+    // Maps to hold table models and selected IDs for each category
+    private java.util.Map<String, DefaultTableModel> tableModels = new java.util.HashMap<>();
+    private java.util.Map<String, JTable> tables = new java.util.HashMap<>();
+    // Keep track of the selected ID for each category (tab).
+    // This map stores the ID of the currently selected experience entry for each category.
+    private java.util.Map<String, Integer> selectedExperienceIds = new java.util.HashMap<>();
+
+
+    private JButton addButton, updateButton, deleteButton, clearButton;
 
     /**
-     * Constructor for SkillManagementPanel.
+     * Constructor for ExperienceManagementPanel.
      * @param parent The main application frame.
      */
-    public SkillManagementPanel(PortfolioAdminApp parent) {
+    public ExperienceManagementPanel(PortfolioAdminApp parent) {
         this.parentFrame = parent;
         setLayout(new BorderLayout(20, 20));
-        // This panel is transparent to show the parent's gradient background
         setOpaque(false);
         setBorder(new EmptyBorder(25, 25, 25, 25));
 
         // --- North Panel: Title and Back Button ---
-        JPanel northPanel = new JPanel(new BorderLayout());
-        northPanel.setOpaque(false); // Make transparent
-        JLabel titleLabel = new JLabel("Manage Skills", SwingConstants.CENTER);
-        titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
-        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
-        northPanel.add(titleLabel, BorderLayout.CENTER);
+        JPanel northPanel = new JPanel(new BorderLayout()); // Use BorderLayout for this panel
+        northPanel.setOpaque(false);
 
+        // Back Button
         JButton backButton = createStyledBackButton(
             "⬅ Back to Dashboard",
             PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
@@ -1293,34 +1480,197 @@ class SkillManagementPanel extends JPanel {
             PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END,
             e -> parentFrame.showAdminDashboard()
         );
-        northPanel.add(backButton, BorderLayout.WEST);
-        add(northPanel, BorderLayout.NORTH);
+        northPanel.add(backButton, BorderLayout.WEST); // Add back button to the left
 
-        // --- Center Panel: Table of Skills ---
-        String[] columnNames = {"ID", "Skill", "Level"};
-        tableModel = new DefaultTableModel(columnNames, 0) {
+        // Title Label
+        JLabel titleLabel = new JLabel("Manage Experience", SwingConstants.CENTER);
+        titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
+        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
+        northPanel.add(titleLabel, BorderLayout.CENTER); // Add title to the center
+
+        add(northPanel, BorderLayout.NORTH); // Add the combined north panel to the main panel
+
+
+        // --- Category Management Panel (above the tabbed pane) ---
+        JPanel categoryManagementPanel = createStyledTitledPanel("Manage Categories", new GridBagLayout());
+        GridBagConstraints categoryGbc = new GridBagConstraints();
+        categoryGbc.insets = new Insets(8, 8, 8, 8); // Padding for category management components
+        categoryGbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Add New Category Row
+        categoryGbc.gridx = 0; categoryGbc.gridy = 0; categoryManagementPanel.add(createStyledLabel("New Category Name:"), categoryGbc);
+        categoryGbc.gridx = 1; categoryGbc.gridy = 0; categoryGbc.weightx = 1.0;
+        newCategoryNameField = createStyledTextField();
+        categoryManagementPanel.add(newCategoryNameField, categoryGbc);
+        categoryGbc.gridx = 2; categoryGbc.gridy = 0; categoryGbc.weightx = 0;
+        createCategoryButton = createStyledButton(
+            "Add New Category",
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_END
+        );
+        createCategoryButton.addActionListener(e -> addNewCategory());
+        categoryManagementPanel.add(createCategoryButton, categoryGbc);
+
+        // Delete Category Row
+        categoryGbc.gridx = 0; categoryGbc.gridy = 1; categoryManagementPanel.add(createStyledLabel("Select Category to Delete:"), categoryGbc);
+        categoryGbc.gridx = 1; categoryGbc.gridy = 1;
+        categorySelectorForRenameDelete = createStyledComboBox(new String[]{}); // Will be populated dynamically
+        categoryManagementPanel.add(categorySelectorForRenameDelete, categoryGbc);
+
+        JPanel deleteButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        deleteButtonPanel.setOpaque(false);
+        deleteCategoryButton = createStyledButton(
+            "Delete Selected Category",
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_END
+        );
+        deleteCategoryButton.addActionListener(e -> deleteSelectedCategory());
+        deleteButtonPanel.add(deleteCategoryButton);
+        categoryGbc.gridx = 2; categoryGbc.gridy = 1;
+        categoryManagementPanel.add(deleteButtonPanel, categoryGbc);
+
+
+        // Add category management panel to the top part of the center
+        add(categoryManagementPanel, BorderLayout.CENTER); // Changed from NORTH to CENTER to allow northPanel to be in NORTH
+
+        // --- Center Panel: Tabbed Pane for Categories ---
+        tabbedPane = new JTabbedPane();
+        tabbedPane.setFont(PortfolioAdminApp.FONT_HEADER); // Style the tab titles
+        tabbedPane.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        tabbedPane.setForeground(PortfolioAdminApp.TEXT_DARK);
+        tabbedPane.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(5, 5, 5, 5)
+        ));
+
+        // Add change listener to tabbed pane to update form when tab changes
+        tabbedPane.addChangeListener(e -> {
+            clearForm(); // Clear form when switching tabs
+        });
+
+        // Add tabbed pane to main panel's center-south (below category management)
+        // To achieve this, we need an intermediate panel for CENTER
+        JPanel centerContainer = new JPanel(new BorderLayout(10, 10)); // Container for category mgmt and tabs
+        centerContainer.setOpaque(false);
+        centerContainer.add(categoryManagementPanel, BorderLayout.NORTH); // Category management at top of center
+        centerContainer.add(tabbedPane, BorderLayout.CENTER); // Tabs below category management
+
+        add(centerContainer, BorderLayout.CENTER); // Add the center container to the main panel's center
+
+
+        // --- South Panel: Form for Add/Edit Experience ---
+        JPanel experienceFormPanel = createStyledTitledPanel("Experience Entry Details", new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Skill Name
+        gbc.gridx = 0; gbc.gridy = 0; experienceFormPanel.add(createStyledLabel("Name:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
+        skillNameField = createStyledTextField();
+        experienceFormPanel.add(skillNameField, gbc);
+
+        // Level ComboBox
+        gbc.gridx = 0; gbc.gridy = 1; experienceFormPanel.add(createStyledLabel("Level:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 1;
+        levelComboBox = createStyledComboBox(levels);
+        experienceFormPanel.add(levelComboBox, gbc);
+
+        // Buttons for Experience Entries
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        addButton = createStyledButton(
+            "Add Entry",
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_END
+        );
+        updateButton = createStyledButton(
+            "Update Entry",
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
+        deleteButton = createStyledButton(
+            "Delete Entry",
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_END
+        );
+        clearButton = createStyledButton(
+            "Clear Form",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END
+        );
+
+        addButton.addActionListener(e -> addExperience());
+        updateButton.addActionListener(e -> updateExperience());
+        deleteButton.addActionListener(e -> deleteExperience());
+        clearButton.addActionListener(e -> clearForm());
+
+        buttonPanel.add(addButton);
+        buttonPanel.add(updateButton);
+        buttonPanel.add(deleteButton);
+        buttonPanel.add(clearButton);
+
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
+        gbc.insets = new Insets(20, 10, 10, 10);
+        experienceFormPanel.add(buttonPanel, gbc);
+        add(experienceFormPanel, BorderLayout.SOUTH);
+
+        // Load data on panel initialization
+        loadCategoriesAndExperiences();
+        clearForm(); // Set initial button states for experience entry form
+    }
+
+    /**
+     * Creates a panel for a specific experience category, including its table.
+     * This method is now called dynamically when categories are loaded/created.
+     * @param category The name of the category.
+     * @return A JPanel containing the table for the given category.
+     */
+    private JPanel createCategoryPanel(String category) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false); // Transparent to show background gradient
+
+        String[] columnNames = {"ID", "Name", "Level"};
+        DefaultTableModel model = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
-        skillTable = new JTable(tableModel);
-        skillTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        skillTable.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting() && skillTable.getSelectedRow() != -1) {
-                displaySelectedSkill();
+        JTable table = new JTable(model);
+        tableModels.put(category, model);
+        tables.put(category, table);
+        selectedExperienceIds.put(category, -1); // Initialize selected ID for this category
+
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.getSelectionModel().addListSelectionListener(e -> {
+            // Ensure this listener only acts on the currently visible tab
+            if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1 && tabbedPane.getSelectedComponent() == panel) {
+                displaySelectedExperience(category);
             }
         });
         // Table styling
-        skillTable.setFont(PortfolioAdminApp.FONT_BODY);
-        skillTable.setRowHeight(30);
-        skillTable.getTableHeader().setFont(PortfolioAdminApp.FONT_HEADER);
-        skillTable.getTableHeader().setBackground(PortfolioAdminApp.PRIMARY_BLUE);
-        skillTable.getTableHeader().setForeground(Color.WHITE);
-        skillTable.setGridColor(PortfolioAdminApp.BORDER_COLOR);
-        skillTable.setSelectionBackground(new Color(173, 216, 230, 100));
-        skillTable.setSelectionForeground(PortfolioAdminApp.TEXT_DARK);
-        skillTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+        table.setFont(PortfolioAdminApp.FONT_BODY);
+        table.setRowHeight(30);
+        table.getTableHeader().setFont(PortfolioAdminApp.FONT_HEADER);
+        table.getTableHeader().setBackground(PortfolioAdminApp.PRIMARY_BLUE);
+        table.getTableHeader().setForeground(Color.WHITE);
+        table.setGridColor(PortfolioAdminApp.BORDER_COLOR);
+        table.setSelectionBackground(new Color(173, 216, 230, 100));
+        table.setSelectionForeground(PortfolioAdminApp.TEXT_DARK);
+        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
@@ -1333,82 +1683,13 @@ class SkillManagementPanel extends JPanel {
             }
         });
 
-        JScrollPane scrollPane = new JScrollPane(skillTable);
+        JScrollPane scrollPane = new JScrollPane(table);
         scrollPane.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
                 new EmptyBorder(5, 5, 5, 5)
         ));
-        add(scrollPane, BorderLayout.CENTER);
-
-        // --- South Panel: Form for Add/Edit ---
-        JPanel formPanel = createStyledTitledPanel("Skill Details", new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-
-        // Skill ComboBox
-        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(createStyledLabel("Skill:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
-        String[] skills = {"Java", "HTML", "CSS", "JavaScript", "Python", "C++", "Ruby", "PHP", "SQL", "Git", "React", "Angular", "Vue.js", "Node.js", "Spring Boot", "Docker", "Kubernetes", "AWS", "Azure", "Google Cloud"}; // Expanded list
-        skillComboBox = createStyledComboBox(skills);
-        formPanel.add(skillComboBox, gbc);
-
-        // Level ComboBox
-        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Level:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 1;
-        String[] levels = {"Beginner", "Intermediate", "Expert", "Master"}; // Added "Master"
-        levelComboBox = createStyledComboBox(levels);
-        formPanel.add(levelComboBox, gbc);
-
-        // Buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
-        buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
-        addButton = createStyledButton(
-            "Add Skill",
-            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_START,
-            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_END,
-            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_START,
-            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_END
-        );
-        updateButton = createStyledButton(
-            "Update Skill",
-            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
-            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
-            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
-            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
-        );
-        deleteButton = createStyledButton(
-            "Delete Skill",
-            PortfolioAdminApp.GRADIENT_ACCENT_RED_START,
-            PortfolioAdminApp.GRADIENT_ACCENT_RED_END,
-            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_START,
-            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_END
-        );
-        JButton clearButton = createStyledButton(
-            "Clear Form",
-            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
-            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
-            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
-            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END
-        );
-
-        addButton.addActionListener(e -> addSkill());
-        updateButton.addActionListener(e -> updateSkill());
-        deleteButton.addActionListener(e -> deleteSkill());
-        clearButton.addActionListener(e -> clearForm());
-
-        buttonPanel.add(addButton);
-        buttonPanel.add(updateButton);
-        buttonPanel.add(deleteButton);
-        buttonPanel.add(clearButton);
-
-        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
-        gbc.insets = new Insets(20, 10, 10, 10);
-        formPanel.add(buttonPanel, gbc);
-        add(formPanel, BorderLayout.SOUTH);
-
-        loadSkills();
-        clearForm();
+        panel.add(scrollPane, BorderLayout.CENTER);
+        return panel;
     }
 
     /** Helper method to create a styled JTextField. */
@@ -1475,11 +1756,67 @@ class SkillManagementPanel extends JPanel {
     }
 
     /**
-     * Loads all skills from the database and populates the table.
+     * Loads categories from the database and then loads all experience entries.
+     * This rebuilds the tabs and populates the tables.
      */
-    private void loadSkills() {
-        tableModel.setRowCount(0);
-        String sql = "SELECT id, name, level FROM skills";
+    private void loadCategoriesAndExperiences() {
+        // Clear existing tabs and models
+        tabbedPane.removeAll();
+        tableModels.clear();
+        tables.clear();
+        // Do NOT clear selectedExperienceIds here.
+        // It should persist selected IDs for each category even if tabs are rebuilt.
+
+        List<String> categories = getDistinctExperienceCategories();
+        // Sort categories alphabetically for consistent display
+        Collections.sort(categories);
+
+        if (categories.isEmpty()) {
+            // Add a default category if none exist, or display a message
+            addNewCategory("General"); // Add a default "General" category if DB is empty
+            categories = getDistinctExperienceCategories(); // Reload after adding default
+        }
+
+        // Recreate tabs for each category found in the database
+        for (String category : categories) {
+            JPanel categoryPanel = createCategoryPanel(category);
+            tabbedPane.addTab(category, categoryPanel);
+        }
+
+        loadAllExperienceEntries(); // Now load all actual experience entries into the correct tables
+        updateCategorySelector(); // Update the JComboBox for delete actions
+    }
+
+    /**
+     * Fetches distinct categories from the 'skills' table.
+     * @return A list of distinct category names.
+     */
+    private List<String> getDistinctExperienceCategories() {
+        List<String> distinctCategories = new ArrayList<>();
+        String sql = "SELECT DISTINCT category FROM skills WHERE category IS NOT NULL AND category != '' ORDER BY category";
+        try (Connection conn = DatabaseManager.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                distinctCategories.add(rs.getString("category"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error fetching categories: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+        return distinctCategories;
+    }
+
+    /**
+     * Loads all experience entries from the database into their respective category tables.
+     */
+    private void loadAllExperienceEntries() {
+        // Clear all table models first
+        for (DefaultTableModel model : tableModels.values()) {
+            model.setRowCount(0);
+        }
+
+        String sql = "SELECT id, name, level, category FROM skills ORDER BY category, name";
         try (Connection conn = DatabaseManager.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -1488,130 +1825,308 @@ class SkillManagementPanel extends JPanel {
                 int id = rs.getInt("id");
                 String name = rs.getString("name");
                 String level = rs.getString("level");
-                tableModel.addRow(new Object[]{id, name, level});
+                String category = rs.getString("category");
+
+                DefaultTableModel model = tableModels.get(category);
+                if (model != null) {
+                    model.addRow(new Object[]{id, name, level});
+                } else {
+                    System.err.println("Warning: Experience entry found with unknown category '" + category + "'. Skipping for display.");
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error loading skills: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error loading experiences: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     /**
-     * Displays the details of the selected skill in the form fields.
+     * Updates the ComboBox with the current list of categories.
      */
-    private void displaySelectedSkill() {
-        int selectedRow = skillTable.getSelectedRow();
+    private void updateCategorySelector() {
+        categorySelectorForRenameDelete.removeAllItems();
+        List<String> categories = getDistinctExperienceCategories();
+        for (String cat : categories) {
+            categorySelectorForRenameDelete.addItem(cat);
+        }
+        if (categorySelectorForRenameDelete.getItemCount() > 0) {
+            categorySelectorForRenameDelete.setSelectedIndex(0);
+            deleteCategoryButton.setEnabled(true); // Enable delete if categories exist
+        } else {
+            deleteCategoryButton.setEnabled(false); // Disable if no categories
+        }
+    }
+
+
+    /**
+     * Displays the details of the selected experience in the form fields.
+     * @param category The category of the selected experience.
+     */
+    private void displaySelectedExperience(String category) {
+        JTable currentTable = tables.get(category);
+        DefaultTableModel currentModel = tableModels.get(category);
+
+        if (currentTable == null || currentModel == null) return;
+
+        int selectedRow = currentTable.getSelectedRow();
         if (selectedRow != -1) {
-            selectedSkillId = (int) tableModel.getValueAt(selectedRow, 0);
-            String skillName = (String) tableModel.getValueAt(selectedRow, 1);
-            String skillLevel = (String) tableModel.getValueAt(selectedRow, 2);
-            skillComboBox.setSelectedItem(skillName);
-            levelComboBox.setSelectedItem(skillLevel);
-            addButton.setEnabled(false);
+            int experienceId = (int) currentModel.getValueAt(selectedRow, 0);
+            String experienceName = (String) currentModel.getValueAt(selectedRow, 1);
+            String experienceLevel = (String) currentModel.getValueAt(selectedRow, 2);
+
+            // Store selected ID for this specific category
+            selectedExperienceIds.put(category, experienceId);
+            skillNameField.setText(experienceName);
+            levelComboBox.setSelectedItem(experienceLevel);
+
+            addButton.setEnabled(false); // Disable add when editing
             updateButton.setEnabled(true);
             deleteButton.setEnabled(true);
+        } else {
+            // If selection is cleared within a tab (e.g., user clicks off the row)
+            clearForm();
         }
     }
 
     /**
-     * Adds a new skill to the database.
+     * Adds a new experience entry to the database based on the currently selected tab.
      */
-    private void addSkill() {
-        String skill = (String) skillComboBox.getSelectedItem();
+    private void addExperience() {
+        String name = skillNameField.getText().trim();
         String level = (String) levelComboBox.getSelectedItem();
+        int selectedTabIndex = tabbedPane.getSelectedIndex();
 
-        if (skill == null || skill.isEmpty() || level == null || level.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Skill and level cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+        if (selectedTabIndex == -1) {
+             JOptionPane.showMessageDialog(this, "Please select an experience category tab first.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+             return;
+        }
+        String category = tabbedPane.getTitleAt(selectedTabIndex).trim(); // Get current tab category
+
+        if (name.isEmpty() || level == null || level.isEmpty() || category.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Name, level, and category cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String sql = "INSERT INTO skills (name, level) VALUES (?, ?)";
+        String sql = "INSERT INTO skills (name, level, category) VALUES (?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, skill);
+            pstmt.setString(1, name);
             pstmt.setString(2, level);
+            pstmt.setString(3, category);
             pstmt.executeUpdate();
-            JOptionPane.showMessageDialog(this, "Skill added successfully!");
+            JOptionPane.showMessageDialog(this, "Experience added successfully to " + category + "!");
             clearForm();
-            loadSkills(); // Refresh table
+            loadAllExperienceEntries(); // Refresh all entries, affecting only the relevant table
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error adding skill: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error adding experience: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     /**
-     * Updates an existing skill in the database.
+     * Updates an existing experience entry in the database.
      */
-    private void updateSkill() {
-        if (selectedSkillId == -1) {
-            JOptionPane.showMessageDialog(this, "No skill selected for update.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+    private void updateExperience() {
+        int selectedTabIndex = tabbedPane.getSelectedIndex();
+        if (selectedTabIndex == -1) {
+            JOptionPane.showMessageDialog(this, "Please select an experience category tab first.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String category = tabbedPane.getTitleAt(selectedTabIndex);
+        int selectedId = selectedExperienceIds.getOrDefault(category, -1); // Get selected ID for current category
+
+        if (selectedId == -1) {
+            JOptionPane.showMessageDialog(this, "No experience selected for update in " + category + ".", "Selection Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String skill = (String) skillComboBox.getSelectedItem();
+        String name = skillNameField.getText().trim();
         String level = (String) levelComboBox.getSelectedItem();
 
-        if (skill == null || skill.isEmpty() || level == null || level.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Skill and level cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+        if (name.isEmpty() || level == null || level.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Name and level cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         String sql = "UPDATE skills SET name = ?, level = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, skill);
+            pstmt.setString(1, name);
             pstmt.setString(2, level);
-            pstmt.setInt(3, selectedSkillId);
+            pstmt.setInt(3, selectedId);
             pstmt.executeUpdate();
-            JOptionPane.showMessageDialog(this, "Skill updated successfully!");
+            JOptionPane.showMessageDialog(this, "Experience updated successfully in " + category + "!");
             clearForm();
-            loadSkills();
+            loadAllExperienceEntries(); // Refresh entries
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error updating skill: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error updating experience: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     /**
-     * Deletes the selected skill from the database.
+     * Deletes the selected experience entry from the database.
      */
-    private void deleteSkill() {
-        if (selectedSkillId == -1) {
-            JOptionPane.showMessageDialog(this, "No skill selected for deletion.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+    private void deleteExperience() {
+        int selectedTabIndex = tabbedPane.getSelectedIndex();
+        if (selectedTabIndex == -1) {
+            JOptionPane.showMessageDialog(this, "Please select an experience category tab first.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String category = tabbedPane.getTitleAt(selectedTabIndex);
+        int selectedId = selectedExperienceIds.getOrDefault(category, -1); // Get selected ID for current category
+
+        if (selectedId == -1) {
+            JOptionPane.showMessageDialog(this, "No experience selected for deletion in " + category + ".", "Selection Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this skill?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this experience from " + category + "?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             String sql = "DELETE FROM skills WHERE id = ?";
             try (Connection conn = DatabaseManager.getConnection();
                  PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setInt(1, selectedSkillId);
+                pstmt.setInt(1, selectedId);
                 pstmt.executeUpdate();
-                JOptionPane.showMessageDialog(this, "Skill deleted successfully!");
+                JOptionPane.showMessageDialog(this, "Experience deleted successfully from " + category + "!");
                 clearForm();
-                loadSkills();
+                loadAllExperienceEntries(); // Refresh entries
             } catch (SQLException e) {
                 e.printStackTrace();
-                JOptionPane.showMessageDialog(this, "Error deleting skill: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Error deleting experience: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
     /**
-     * Clears the form fields and resets the selected skill ID.
+     * Clears the form fields for adding/editing experience entries and resets selected states.
+     * This method is called when switching tabs or clearing the form manually.
      */
     private void clearForm() {
-        skillComboBox.setSelectedIndex(0);
+        skillNameField.setText("");
         levelComboBox.setSelectedIndex(0);
-        selectedSkillId = -1;
-        skillTable.clearSelection();
+
+        // Get the currently selected category tab to clear its selection.
+        int selectedTabIndex = tabbedPane.getSelectedIndex();
+        if (selectedTabIndex != -1) {
+            String currentCategory = tabbedPane.getTitleAt(selectedTabIndex);
+            // Clear the selected ID specifically for the current category in the map.
+            selectedExperienceIds.put(currentCategory, -1);
+
+            // Clear selection in the currently visible table (if any row was selected)
+            JTable currentTable = tables.get(currentCategory);
+            if (currentTable != null) {
+                currentTable.clearSelection();
+            }
+        }
+
+        // Reset button states for adding new entries
         addButton.setEnabled(true);
         updateButton.setEnabled(false);
         deleteButton.setEnabled(false);
     }
+
+    /**
+     * Adds a new category to the database and reloads all categories and experiences.
+     */
+    private void addNewCategory() {
+        String newCategory = newCategoryNameField.getText().trim();
+        if (newCategory.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Category name cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Check if category already exists
+        List<String> existingCategories = getDistinctExperienceCategories();
+        if (existingCategories.contains(newCategory)) {
+            JOptionPane.showMessageDialog(this, "Category '" + newCategory + "' already exists.", "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Add a dummy entry to create the category in the DB.
+        // This is a simple way to ensure the category exists in the `skills` table
+        // so it appears in the distinct categories list when reloaded.
+        String sql = "INSERT INTO skills (name, level, category) VALUES (?, ?, ?)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, "New Entry"); // Dummy name
+            pstmt.setString(2, "Beginner");  // Dummy level
+            pstmt.setString(3, newCategory);
+            pstmt.executeUpdate();
+            JOptionPane.showMessageDialog(this, "Category '" + newCategory + "' added successfully!");
+            newCategoryNameField.setText(""); // Clear the field
+            loadCategoriesAndExperiences(); // Reload all categories and experiences
+            // Select the newly added tab if possible
+            int newTabIndex = tabbedPane.indexOfTab(newCategory);
+            if (newTabIndex != -1) {
+                tabbedPane.setSelectedIndex(newTabIndex);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error adding new category: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Overloaded method to add a category without user input (e.g., for default category).
+     */
+    private void addNewCategory(String categoryName) {
+        String newCategory = categoryName.trim();
+        if (newCategory.isEmpty()) {
+            return; // Should not happen with hardcoded value
+        }
+
+        // Only add if it doesn't exist
+        List<String> existingCategories = getDistinctExperienceCategories();
+        if (existingCategories.contains(newCategory)) {
+            return;
+        }
+
+        String sql = "INSERT INTO skills (name, level, category) VALUES (?, ?, ?)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, "Sample Experience"); // Dummy data for the new category
+            pstmt.setString(2, "Beginner");
+            pstmt.setString(3, newCategory);
+            pstmt.executeUpdate();
+            System.out.println("Default category '" + newCategory + "' added.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.err.println("Error adding default category: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Deletes the currently selected category and all its associated experience entries.
+     */
+    private void deleteSelectedCategory() {
+        String categoryToDelete = (String) categorySelectorForRenameDelete.getSelectedItem();
+        if (categoryToDelete == null || categoryToDelete.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please select a category to delete.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "WARNING: Deleting category '" + categoryToDelete + "' will permanently delete ALL associated experience entries.\nAre you sure you want to proceed?",
+                "Confirm Category Deletion", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            String sql = "DELETE FROM skills WHERE category = ?";
+            try (Connection conn = DatabaseManager.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, categoryToDelete);
+                pstmt.executeUpdate();
+                JOptionPane.showMessageDialog(this, "Category '" + categoryToDelete + "' and all its entries deleted successfully!");
+                loadCategoriesAndExperiences(); // Reload all categories and experiences to update UI
+                clearForm(); // Clear the experience entry form
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error deleting category: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
 }
+
 
 /**
  * Panel for managing the 'About Me' content.
@@ -1799,7 +2314,7 @@ class AboutManagementPanel extends JPanel {
 
 /**
  * Panel for managing contacts.
- * Allows viewing, adding, editing, soft deleting, and restoring contacts.
+ * Allows viewing, adding, editing, soft deleting, restoring, and hard deleting contacts.
  */
 class ContactManagementPanel extends JPanel {
     private PortfolioAdminApp parentFrame;
@@ -1807,9 +2322,12 @@ class ContactManagementPanel extends JPanel {
     private JTable activeContactTable, deletedContactTable;
     private JTextField linkField;
     private JComboBox<String> platformComboBox;
-    private JButton addButton, updateButton, softDeleteButton, restoreButton, clearButton;
+    private JButton addButton, updateButton, softDeleteButton, restoreButton, hardDeleteButton, clearButton;
     private int selectedContactId = -1; // For active contacts
     private int selectedDeletedContactId = -1; // For deleted contacts
+
+    // Combined platform options, including "Other" for custom entries
+    private static final String[] PLATFORMS = {"", "Email", "Phone", "LinkedIn", "GitHub", "Website", "Twitter", "Facebook", "Instagram", "Discord", "Telegram", "WhatsApp", "YouTube", "Blog", "Other"};
 
     /**
      * Constructor for ContactManagementPanel.
@@ -1943,7 +2461,7 @@ class ContactManagementPanel extends JPanel {
 
         add(splitPane, BorderLayout.CENTER);
 
-        // --- South Panel: Form for Add/Edit/Restore ---
+        // --- South Panel: Form for Add/Edit/Restore/Delete ---
         JPanel formPanel = createStyledTitledPanel("Contact Details / Actions", new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
@@ -1952,8 +2470,7 @@ class ContactManagementPanel extends JPanel {
         // Platform
         gbc.gridx = 0; gbc.gridy = 0; formPanel.add(createStyledLabel("Platform:"), gbc);
         gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
-        String[] platforms = {"", "Phone", "Email", "LinkedIn", "GitHub", "Website", "Twitter", "Facebook", "Instagram", "Discord", "Telegram", "WhatsApp", "YouTube", "Blog", "Other"}; // Even more platforms
-        platformComboBox = createStyledComboBox(platforms);
+        platformComboBox = createStyledComboBox(PLATFORMS);
         formPanel.add(platformComboBox, gbc);
 
         // Link
@@ -1991,6 +2508,10 @@ class ContactManagementPanel extends JPanel {
             PortfolioAdminApp.GRADIENT_ACCENT_CYAN_HOVER_START,
             PortfolioAdminApp.GRADIENT_ACCENT_CYAN_HOVER_END
         );
+        hardDeleteButton = createStyledButton(
+            "Hard Delete",
+            Color.DARK_GRAY, Color.BLACK, Color.GRAY, Color.DARK_GRAY
+        ); // A more somber color for permanent delete
         clearButton = createStyledButton(
             "Clear Form",
             PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
@@ -2003,12 +2524,14 @@ class ContactManagementPanel extends JPanel {
         updateButton.addActionListener(e -> updateContact());
         softDeleteButton.addActionListener(e -> softDeleteContact());
         restoreButton.addActionListener(e -> restoreContact());
+        hardDeleteButton.addActionListener(e -> hardDeleteContact()); // Add action listener for hard delete
         clearButton.addActionListener(e -> clearForm());
 
         buttonPanel.add(addButton);
         buttonPanel.add(updateButton);
         buttonPanel.add(softDeleteButton);
         buttonPanel.add(restoreButton);
+        buttonPanel.add(hardDeleteButton); // Add hard delete button
         buttonPanel.add(clearButton);
 
         gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
@@ -2130,6 +2653,7 @@ class ContactManagementPanel extends JPanel {
             updateButton.setEnabled(true);
             softDeleteButton.setEnabled(true);
             restoreButton.setEnabled(false); // Cannot restore an active contact
+            hardDeleteButton.setEnabled(true); // Can hard delete an active contact
         }
     }
 
@@ -2146,6 +2670,7 @@ class ContactManagementPanel extends JPanel {
             updateButton.setEnabled(false); // Cannot update a deleted contact
             softDeleteButton.setEnabled(false); // Cannot soft delete a deleted contact again
             restoreButton.setEnabled(true);
+            hardDeleteButton.setEnabled(true); // Can hard delete a deleted contact
         }
     }
 
@@ -2161,14 +2686,15 @@ class ContactManagementPanel extends JPanel {
             return;
         }
 
-        // FIX: Changed 'value' to 'type' as per the user's screenshot showing an error related to 'type' column.
-        // This assumes the 'type' column in your 'contacts' table is intended to store the platform.
-        String sql = "INSERT INTO contacts (platform, link, type, deleted) VALUES (?, ?, ?, 0)";
+        // FIX: The original code in PortfolioAdminApp.java had an issue with 'type' column
+        // We will assume 'platform' is what should be stored for the type/value.
+        // The table creation only defines 'platform' and 'link'. No 'type' or 'value' column.
+        // So, we'll store only platform and link.
+        String sql = "INSERT INTO contacts (platform, link, deleted) VALUES (?, ?, 0)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, platform);
             pstmt.setString(2, link);
-            pstmt.setString(3, platform); // Storing platform in the 'type' column
             pstmt.executeUpdate();
             JOptionPane.showMessageDialog(this, "Contact added successfully!");
             clearForm();
@@ -2196,15 +2722,12 @@ class ContactManagementPanel extends JPanel {
             return;
         }
 
-        // FIX: Changed 'value' to 'type' as per the user's screenshot showing an.
-        // This assumes the 'type' column in your 'contacts' table is intended to store the platform.
-        String sql = "UPDATE contacts SET platform = ?, link = ?, type = ? WHERE id = ?";
+        String sql = "UPDATE contacts SET platform = ?, link = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, platform);
             pstmt.setString(2, link);
-            pstmt.setString(3, platform); // Updating 'type' column with the platform
-            pstmt.setInt(4, selectedContactId);
+            pstmt.setInt(3, selectedContactId);
             pstmt.executeUpdate();
             JOptionPane.showMessageDialog(this, "Contact updated successfully!");
             clearForm();
@@ -2223,6 +2746,31 @@ class ContactManagementPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "No active contact selected for soft deletion.", "Selection Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
+
+        // Need to retrieve the platform of the selected contact to check if it's "Email", "Phone", "Other"
+        String platformToSoftDelete = null;
+        String sqlSelect = "SELECT platform FROM contacts WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmtSelect = conn.prepareStatement(sqlSelect)) {
+            pstmtSelect.setInt(1, selectedContactId);
+            ResultSet rs = pstmtSelect.executeQuery();
+            if (rs.next()) {
+                platformToSoftDelete = rs.getString("platform");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error retrieving contact platform: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Prevent soft deletion of "Email", "Phone" platforms
+        if (platformToSoftDelete != null &&
+            (platformToSoftDelete.equalsIgnoreCase("Email") ||
+             platformToSoftDelete.equalsIgnoreCase("Phone"))) {
+            JOptionPane.showMessageDialog(this, "The platform '" + platformToSoftDelete + "' cannot be soft deleted. Only custom entries can be soft deleted.", "Deletion Restricted", JOptionPane.WARNING_MESSAGE);
+            return; // Stop the deletion process
+        }
+
 
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to soft delete this contact?", "Confirm Soft Delete", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
@@ -2268,6 +2816,65 @@ class ContactManagementPanel extends JPanel {
     }
 
     /**
+     * Permanently deletes the currently selected contact (either active or deleted) from the database.
+     */
+    private void hardDeleteContact() {
+        int idToDelete = -1;
+        String contactType = "";
+
+        if (selectedContactId != -1) {
+            idToDelete = selectedContactId;
+            contactType = "active";
+        } else if (selectedDeletedContactId != -1) {
+            idToDelete = selectedDeletedContactId;
+            contactType = "deleted";
+        } else {
+            JOptionPane.showMessageDialog(this, "Please select a contact to hard delete.", "No Contact Selected", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Retrieve the platform of the selected contact to check if it's "Email", "Phone", "Other"
+        String platformToHardDelete = null;
+        String sqlSelect = "SELECT platform FROM contacts WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmtSelect = conn.prepareStatement(sqlSelect)) {
+            pstmtSelect.setInt(1, idToDelete);
+            ResultSet rs = pstmtSelect.executeQuery();
+            if (rs.next()) {
+                platformToHardDelete = rs.getString("platform");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error retrieving contact platform: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Prevent hard deletion of "Email", "Phone" platforms
+        if (platformToHardDelete != null &&
+            (platformToHardDelete.equalsIgnoreCase("Email") ||
+             platformToHardDelete.equalsIgnoreCase("Phone"))) {
+            JOptionPane.showMessageDialog(this, "The platform '" + platformToHardDelete + "' cannot be permanently deleted. Only custom entries can be permanently deleted.", "Deletion Restricted", JOptionPane.WARNING_MESSAGE);
+            return; // Stop the deletion process
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, "WARNING: This will permanently delete the " + contactType + " contact. Are you sure?", "Confirm Hard Delete", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
+        if (confirm == JOptionPane.YES_OPTION) {
+            String sql = "DELETE FROM contacts WHERE id = ?";
+            try (Connection conn = DatabaseManager.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, idToDelete);
+                pstmt.executeUpdate();
+                JOptionPane.showMessageDialog(this, "Contact permanently deleted successfully!");
+                clearForm();
+                loadContacts(); // Refresh tables
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error permanently deleting contact: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    /**
      * Clears the form fields and resets selected contact IDs.
      */
     private void clearForm() {
@@ -2281,5 +2888,6 @@ class ContactManagementPanel extends JPanel {
         updateButton.setEnabled(false);
         softDeleteButton.setEnabled(false);
         restoreButton.setEnabled(false);
+        hardDeleteButton.setEnabled(false); // Disable hard delete by default until a contact is selected
     }
 }
