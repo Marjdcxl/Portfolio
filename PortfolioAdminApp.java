@@ -2747,31 +2747,7 @@ class ContactManagementPanel extends JPanel {
             return;
         }
 
-        // Need to retrieve the platform of the selected contact to check if it's "Email", "Phone", "Other"
-        String platformToSoftDelete = null;
-        String sqlSelect = "SELECT platform FROM contacts WHERE id = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmtSelect = conn.prepareStatement(sqlSelect)) {
-            pstmtSelect.setInt(1, selectedContactId);
-            ResultSet rs = pstmtSelect.executeQuery();
-            if (rs.next()) {
-                platformToSoftDelete = rs.getString("platform");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error retrieving contact platform: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        // Prevent soft deletion of "Email", "Phone" platforms
-        if (platformToSoftDelete != null &&
-            (platformToSoftDelete.equalsIgnoreCase("Email") ||
-             platformToSoftDelete.equalsIgnoreCase("Phone"))) {
-            JOptionPane.showMessageDialog(this, "The platform '" + platformToSoftDelete + "' cannot be soft deleted. Only custom entries can be soft deleted.", "Deletion Restricted", JOptionPane.WARNING_MESSAGE);
-            return; // Stop the deletion process
-        }
-
-
+        // Removed the restriction check for "Email" or "Phone" platforms
         int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to soft delete this contact?", "Confirm Soft Delete", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             String sql = "UPDATE contacts SET deleted = 1 WHERE id = ?";
@@ -2833,30 +2809,7 @@ class ContactManagementPanel extends JPanel {
             return;
         }
 
-        // Retrieve the platform of the selected contact to check if it's "Email", "Phone", "Other"
-        String platformToHardDelete = null;
-        String sqlSelect = "SELECT platform FROM contacts WHERE id = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmtSelect = conn.prepareStatement(sqlSelect)) {
-            pstmtSelect.setInt(1, idToDelete);
-            ResultSet rs = pstmtSelect.executeQuery();
-            if (rs.next()) {
-                platformToHardDelete = rs.getString("platform");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error retrieving contact platform: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        // Prevent hard deletion of "Email", "Phone" platforms
-        if (platformToHardDelete != null &&
-            (platformToHardDelete.equalsIgnoreCase("Email") ||
-             platformToHardDelete.equalsIgnoreCase("Phone"))) {
-            JOptionPane.showMessageDialog(this, "The platform '" + platformToHardDelete + "' cannot be permanently deleted. Only custom entries can be permanently deleted.", "Deletion Restricted", JOptionPane.WARNING_MESSAGE);
-            return; // Stop the deletion process
-        }
-
+        // Removed the restriction check for "Email" or "Phone" platforms
         int confirm = JOptionPane.showConfirmDialog(this, "WARNING: This will permanently delete the " + contactType + " contact. Are you sure?", "Confirm Hard Delete", JOptionPane.YES_NO_OPTION, JOptionPane.ERROR_MESSAGE);
         if (confirm == JOptionPane.YES_OPTION) {
             String sql = "DELETE FROM contacts WHERE id = ?";
