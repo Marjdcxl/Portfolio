@@ -152,8 +152,8 @@ class GradientButton extends JButton {
  */
 public class PortfolioAdminApp extends JFrame {
 
-    private CardLayout cardLayout;
-    private JPanel mainPanel;
+    private CardLayout mainCardLayout;
+    private JPanel mainContentPanel; // This panel will hold different views (Login, Dashboard, Management panels)
 
     // --- Global Design Constants ---
     // Colors (Vibrant, professional palette with defined gradient steps)
@@ -238,24 +238,23 @@ public class PortfolioAdminApp extends JFrame {
         setLocationRelativeTo(null); // Center the window
 
         // Create the main content panel with a gradient background
-        JPanel gradientBackgroundPanel = new GradientPanel(BACKGROUND_LIGHT_START, BACKGROUND_LIGHT_END, false); // Vertical gradient
-        gradientBackgroundPanel.setLayout(new BorderLayout()); // Use BorderLayout for the gradient panel
+        // This panel will directly hold the LoginPanel or AdminDashboardPanel via CardLayout
+        GradientPanel gradientBackgroundPanel = new GradientPanel(BACKGROUND_LIGHT_START, BACKGROUND_LIGHT_END, false); // Vertical gradient
+        gradientBackgroundPanel.setLayout(new CardLayout()); // Use CardLayout directly here
+        
+        mainCardLayout = (CardLayout) gradientBackgroundPanel.getLayout(); // Get the CardLayout instance
+        mainContentPanel = gradientBackgroundPanel; // The background panel itself is now the main content panel for card layout
 
-        cardLayout = new CardLayout();
-        mainPanel = new JPanel(cardLayout);
-        mainPanel.setOpaque(false); // Make mainPanel transparent so gradient shows through
-
-        // Initialize panels and add them to mainPanel
+        // Initialize panels and add them to mainContentPanel
         LoginPanel loginPanel = new LoginPanel(this);
         loginPanel.setOpaque(false); // Make loginPanel transparent to show gradient
-        mainPanel.add(loginPanel, "Login");
+        mainContentPanel.add(loginPanel, "Login");
 
-        // Add mainPanel to the gradient background panel
-        gradientBackgroundPanel.add(mainPanel, BorderLayout.CENTER);
-        setContentPane(gradientBackgroundPanel); // Set the gradient panel as the content pane
+        // Set the gradient panel as the content pane
+        setContentPane(gradientBackgroundPanel);
 
         // Show the login panel initially
-        cardLayout.show(mainPanel, "Login");
+        mainCardLayout.show(mainContentPanel, "Login");
 
         createTables(); // Ensure database tables are created on app startup
     }
@@ -266,8 +265,8 @@ public class PortfolioAdminApp extends JFrame {
     public void showAdminDashboard() {
         AdminDashboardPanel dashboardPanel = new AdminDashboardPanel(this);
         dashboardPanel.setOpaque(false); // Make dashboardPanel transparent
-        mainPanel.add(dashboardPanel, "Dashboard");
-        cardLayout.show(mainPanel, "Dashboard");
+        mainContentPanel.add(dashboardPanel, "Dashboard");
+        mainCardLayout.show(mainContentPanel, "Dashboard");
     }
 
     /**
@@ -276,8 +275,8 @@ public class PortfolioAdminApp extends JFrame {
     public void showProjectManagement() {
         ProjectManagementPanel projectPanel = new ProjectManagementPanel(this);
         projectPanel.setOpaque(false); // Make projectPanel transparent
-        mainPanel.add(projectPanel, "Projects");
-        cardLayout.show(mainPanel, "Projects");
+        mainContentPanel.add(projectPanel, "Projects");
+        mainCardLayout.show(mainContentPanel, "Projects");
     }
 
     /**
@@ -286,8 +285,8 @@ public class PortfolioAdminApp extends JFrame {
     public void showExperienceManagement() {
         ExperienceManagementPanel experiencePanel = new ExperienceManagementPanel(this);
         experiencePanel.setOpaque(false); // Make experiencePanel transparent
-        mainPanel.add(experiencePanel, "Experience");
-        cardLayout.show(mainPanel, "Experience");
+        mainContentPanel.add(experiencePanel, "Experience");
+        mainCardLayout.show(mainContentPanel, "Experience");
     }
 
     /**
@@ -296,8 +295,8 @@ public class PortfolioAdminApp extends JFrame {
     public void showAboutManagement() {
         AboutManagementPanel aboutPanel = new AboutManagementPanel(this);
         aboutPanel.setOpaque(false); // Make aboutPanel transparent
-        mainPanel.add(aboutPanel, "About");
-        cardLayout.show(mainPanel, "About");
+        mainContentPanel.add(aboutPanel, "About");
+        mainCardLayout.show(mainContentPanel, "About");
     }
 
     /**
@@ -306,8 +305,8 @@ public class PortfolioAdminApp extends JFrame {
     public void showContactManagement() {
         ContactManagementPanel contactPanel = new ContactManagementPanel(this);
         contactPanel.setOpaque(false); // Make contactPanel transparent
-        mainPanel.add(contactPanel, "Contacts");
-        cardLayout.show(mainPanel, "Contacts");
+        mainContentPanel.add(contactPanel, "Contacts");
+        mainCardLayout.show(mainContentPanel, "Contacts");
     }
 
     /**
@@ -316,8 +315,8 @@ public class PortfolioAdminApp extends JFrame {
     public void showLoginPanel() {
         LoginPanel loginPanel = new LoginPanel(this); // Recreate to clear fields
         loginPanel.setOpaque(false); // Make loginPanel transparent
-        mainPanel.add(loginPanel, "Login");
-        cardLayout.show(mainPanel, "Login");
+        mainContentPanel.add(loginPanel, "Login");
+        mainCardLayout.show(mainContentPanel, "Login");
     }
 
     /**
@@ -769,26 +768,41 @@ class AdminDashboardPanel extends JPanel {
      */
     public AdminDashboardPanel(PortfolioAdminApp parent) {
         this.parentFrame = parent;
-        setLayout(new GridBagLayout());
-        // This panel is transparent to show the parent's gradient background
-        setOpaque(false);
+        setLayout(new GridBagLayout()); // Use GridBagLayout for precise control
+        setOpaque(false); // Make transparent to show background gradient
+        setBorder(new EmptyBorder(20, 20, 20, 20)); // Overall padding around the dashboard content
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(25, 25, 25, 25); // Increased padding
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 1.0;
+        // gbc.insets will be set per component for fine-tuning.
 
-        // Title
+        // --- Row 0: Title and Logout Button ---
+
+        // Create a wrapper panel for the title to control its top padding independently
+        JPanel titleContainerPanel = new JPanel(new GridBagLayout());
+        titleContainerPanel.setOpaque(false);
+        GridBagConstraints titleGbc = new GridBagConstraints();
+        titleGbc.insets = new Insets(60, 0, 10, 0); // Significant top padding for the title
+        titleGbc.gridx = 0;
+        titleGbc.gridy = 0;
+        titleGbc.weightx = 1.0;
+        titleGbc.fill = GridBagConstraints.HORIZONTAL; // Allow title label to fill its width
+        
         JLabel titleLabel = new JLabel("Welcome to the Admin Dashboard", SwingConstants.CENTER);
         titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
         titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
+        titleContainerPanel.add(titleLabel, titleGbc); // Add title label to its container
+
+        // Add the title container to the main AdminDashboardPanel
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.gridwidth = 2;
-        gbc.anchor = GridBagConstraints.CENTER;
-        add(titleLabel, gbc);
+        gbc.gridwidth = 2; // Span across two conceptual columns for centering
+        gbc.weightx = 1.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL; // Ensure the container fills its horizontal grid space
+        gbc.anchor = GridBagConstraints.NORTH; // Anchor to the top of its cell
+        add(titleContainerPanel, gbc);
 
-        // Logout Button (top right)
+
+        // Logout Button (top-right, placed in a separate grid cell, same row as title)
         JButton logoutButton = createStyledButton(
             "Logout",
             PortfolioAdminApp.GRADIENT_ACCENT_RED_START,
@@ -799,47 +813,62 @@ class AdminDashboardPanel extends JPanel {
         logoutButton.setFont(PortfolioAdminApp.FONT_BUTTON);
         logoutButton.setBorder(BorderFactory.createCompoundBorder(
                 new SoftBevelBorder(SoftBevelBorder.RAISED, new Color(220, 220, 220, 80), new Color(80, 80, 80, 80)),
-                new EmptyBorder(8, 15, 8, 15) // Smaller padding for logout
+                new EmptyBorder(8, 15, 8, 15)
         ));
         logoutButton.addActionListener(e -> parentFrame.showLoginPanel());
-        gbc.gridx = 1;
-        gbc.gridy = 0;
-        gbc.gridwidth = 1;
-        gbc.anchor = GridBagConstraints.NORTHEAST;
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.insets = new Insets(20, 20, 0, 20); // Adjust position
-        add(logoutButton, gbc);
 
-        // Reset GBC for main buttons
-        gbc.gridwidth = 1;
-        gbc.anchor = GridBagConstraints.CENTER;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 1.0;
-        gbc.insets = new Insets(20, 20, 20, 20); // Restore default padding
+        // Wrapper panel for logout button to enforce right alignment and top padding
+        JPanel logoutButtonWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0)); // No internal padding
+        logoutButtonWrapper.setOpaque(false);
+        logoutButtonWrapper.add(logoutButton);
 
-        // Portfolio Button
+        gbc.gridx = 1; // Second conceptual column (right side)
+        gbc.gridy = 0; // Same row as title
+        gbc.gridwidth = 1; // Reset to single column
+        gbc.weightx = 0; // Don't allow it to stretch horizontally
+        gbc.fill = GridBagConstraints.NONE; // Don't fill, use preferred size
+        gbc.anchor = GridBagConstraints.NORTHEAST; // Anchor to top-right of its cell
+        gbc.insets = new Insets(20, 20, 0, 20); // Top and right padding relative to the main panel's border
+        add(logoutButtonWrapper, gbc);
+
+
+        // --- Row 1: Buttons Section (Centered vertically stacked) ---
+        JPanel buttonColumnPanel = new JPanel(new GridBagLayout()); // Inner panel for column of buttons
+        buttonColumnPanel.setOpaque(false); // Make transparent
+        
+        GridBagConstraints btnGbc = new GridBagConstraints();
+        btnGbc.insets = new Insets(15, 0, 15, 0); // Vertical spacing between buttons, no horizontal padding
+        btnGbc.gridx = 0; // All buttons in a single column within this inner panel
+        btnGbc.fill = GridBagConstraints.NONE; // Do not fill cell, let preferred size control button size
+        btnGbc.anchor = GridBagConstraints.CENTER; // Center buttons within their cells
+
+        // Adding the dashboard buttons
         JButton portfolioButton = createDashboardButton("Manage Portfolio Projects", e -> parentFrame.showProjectManagement());
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        add(portfolioButton, gbc);
+        btnGbc.gridy = 0;
+        buttonColumnPanel.add(portfolioButton, btnGbc);
 
-        // Experience Button (formerly Skills)
         JButton experienceButton = createDashboardButton("Manage Experience", e -> parentFrame.showExperienceManagement());
-        gbc.gridx = 1;
-        gbc.gridy = 1;
-        add(experienceButton, gbc);
+        btnGbc.gridy = 1;
+        buttonColumnPanel.add(experienceButton, btnGbc);
 
-        // About Me Button
         JButton aboutButton = createDashboardButton("Manage About Me", e -> parentFrame.showAboutManagement());
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        add(aboutButton, gbc);
+        btnGbc.gridy = 2;
+        buttonColumnPanel.add(aboutButton, btnGbc);
 
-        // Contacts Button
         JButton contactsButton = createDashboardButton("Manage Contacts", e -> parentFrame.showContactManagement());
-        gbc.gridx = 1;
-        gbc.gridy = 2;
-        add(contactsButton, gbc);
+        btnGbc.gridy = 3;
+        buttonColumnPanel.add(contactsButton, btnGbc);
+
+        // Add the button container to the main dashboard panel, centered horizontally and vertically
+        gbc.gridx = 0;
+        gbc.gridy = 1; // This is the new row for the buttons
+        gbc.gridwidth = 2; // Span across the two conceptual columns to allow horizontal centering
+        gbc.weightx = 1.0; // Allow this cell to take horizontal space
+        gbc.weighty = 1.0; // Give it vertical weight so it expands and pushes content to vertical center
+        gbc.fill = GridBagConstraints.NONE; // Don't fill the cell, allow inner panel to self-center
+        gbc.anchor = GridBagConstraints.CENTER; // Center the buttonColumnPanel within its cell
+        gbc.insets = new Insets(40, 0, 40, 0); // Vertical padding around the button group relative to its cell
+        add(buttonColumnPanel, gbc);
     }
 
     /**
@@ -857,7 +886,7 @@ class AdminDashboardPanel extends JPanel {
             PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
         );
         button.setFont(PortfolioAdminApp.FONT_HEADER); // Use FONT_HEADER for dashboard buttons
-        button.setPreferredSize(new Dimension(350, 120)); // Larger buttons
+        button.setPreferredSize(new Dimension(300, 70)); // Adjusted size for centered vertical stack
         button.addActionListener(listener);
         return button;
     }
