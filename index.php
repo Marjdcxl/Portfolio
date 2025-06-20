@@ -5,7 +5,8 @@ require 'db.php'; // Include your database connection file
 $conn->query("CREATE TABLE IF NOT EXISTS skills (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    level VARCHAR(20) NOT NULL
+    -- level VARCHAR(20) NOT NULL, -- Removed the level column
+    category VARCHAR(100) DEFAULT 'General'
 )");
 
 // Automatically create 'about' table if it doesn't exist (from your original index.php)
@@ -58,18 +59,16 @@ if ($conn->query("SHOW TABLES LIKE 'contacts'")->num_rows > 0) {
     }
 }
 
-// Fetch skills from database
-$skills = [];
-// Ensure 'skills' table exists before querying
+// Fetch distinct categories from database for consistent display
+$dynamic_categories = [];
 if ($conn->query("SHOW TABLES LIKE 'skills'")->num_rows > 0) {
-    $skills_result = $conn->query("SELECT * FROM skills");
-    if ($skills_result && $skills_result->num_rows > 0) {
-        while ($row = $skills_result->fetch_assoc()) {
-            $skills[] = $row; // Fetch full skill object for name and level
+    $category_result = $conn->query("SELECT DISTINCT category FROM skills WHERE category IS NOT NULL AND category != '' ORDER BY category");
+    if ($category_result) {
+        while ($row = $category_result->fetch_assoc()) {
+            $dynamic_categories[] = $row['category'];
         }
     }
 }
-
 
 // Fetch about me content from database
 $about = "No about info yet.";
@@ -219,47 +218,51 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
       </div>
     </section>
 
-    <!-- Experience (Skills) Section -->
+     <!-- Experience (Skills) Section -->
     <section id="experience">
       <p class="section__text__p1">Explore My</p>
       <h1 class="title">Experience</h1>
       <div class="experience-details-container">
         <div class="about-containers">
-          <div class="details-container">
-            <h2 class="experience-sub-title">Skills</h2>
-            <div class="article-container">
-              <?php if (count($skills) > 0): ?>
-                  <?php foreach ($skills as $skill): ?>
-                      <article>
-                        <!-- Assuming checkmark.png is in assets folder -->
-                        <img
-                          src="./assets/checkmark.png"
-                          alt="Experience icon"
-                          class="icon"
-                        />
-                        <div>
-                          <h3><?= htmlspecialchars($skill['name']) ?></h3>
-                          <p><?= htmlspecialchars($skill['level']) ?></p>
-                        </div>
-                      </article>
-                  <?php endforeach; ?>
-              <?php else: ?>
-                  <p>No skills added yet.</p>
-              <?php endif; ?>
-            </div>
-          </div>
-          <div class="details-container">
-            <h2 class="experience-sub-title">Backend Development</h2>
-            <div class="article-container">
-              <article>
-                <img src="./assets/checkmark.png" alt="Experience icon" class="icon" />
-                <div>
-                  <h3>Node JS</h3>
-                  <p>Intermediate</p>
-                </div>
-              </article>
-            </div>
-          </div>
+          <?php
+          $categorized_skills = [];
+          if ($conn->query("SHOW TABLES LIKE 'skills'")->num_rows > 0) {
+              // Updated SELECT query: Removed 'level'
+              $skills_result = $conn->query("SELECT id, name, category FROM skills ORDER BY category, name");
+              if ($skills_result && $skills_result->num_rows > 0) {
+                  while ($row = $skills_result->fetch_assoc()) {
+                      $categorized_skills[$row['category']][] = $row;
+                  }
+              }
+          }
+          ?>
+
+          <?php if (!empty($dynamic_categories)): ?>
+              <?php foreach ($dynamic_categories as $cat_name): ?>
+                  <?php if (isset($categorized_skills[$cat_name]) && count($categorized_skills[$cat_name]) > 0): ?>
+                      <div class="details-container">
+                          <h2 class="experience-sub-title"><?= htmlspecialchars($cat_name) ?></h2>
+                          <div class="article-container">
+                              <?php foreach ($categorized_skills[$cat_name] as $skill): ?>
+                                  <article>
+                                      <img
+                                        src="./assets/checkmark.png"
+                                        alt="Experience icon"
+                                        class="icon"
+                                      />
+                                      <div>
+                                          <h3><?= htmlspecialchars($skill['name']) ?></h3>
+                                          <!-- Removed the <p> tag for level -->
+                                      </div>
+                                  </article>
+                              <?php endforeach; ?>
+                          </div>
+                      </div>
+                  <?php endif; ?>
+              <?php endforeach; ?>
+          <?php else: ?>
+              <p>No experience categories or entries added yet.</p>
+          <?php endif; ?>
         </div>
       </div>
     </section>
