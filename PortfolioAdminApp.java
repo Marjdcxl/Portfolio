@@ -236,6 +236,16 @@ public class PortfolioAdminApp extends JFrame {
         setSize(1000, 700); // Increased size for better layout and design elements
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null); // Center the window
+        
+         try {
+            // Use getResource() to load the image from the classpath, which works when
+            // running from a JAR file.
+            Image icon = new ImageIcon(getClass().getResource("/Oppack.png")).getImage();
+            setIconImage(icon);
+        } catch (Exception e) {
+            System.err.println("Could not load application icon: " + e.getMessage());
+            // Handle the error, e.g., by logging it or using a default icon
+        }
 
         // Create the main content panel with a gradient background
         // This panel will directly hold the LoginPanel or AdminDashboardPanel via CardLayout
@@ -2842,7 +2852,7 @@ class ContactManagementPanel extends JPanel {
     /**
      * Clears the form fields and resets selected contact IDs.
      */
-    private void clearForm() {
+    private void clearForm() {  
         platformComboBox.setSelectedIndex(0);
         linkField.setText("");
         selectedContactId = -1;
