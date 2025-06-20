@@ -361,7 +361,6 @@ public class PortfolioAdminApp extends JFrame {
             stmt.execute("CREATE TABLE IF NOT EXISTS skills (" +
                          "id INT AUTO_INCREMENT PRIMARY KEY," +
                          "name VARCHAR(255) NOT NULL," +
-                         "level VARCHAR(20) NOT NULL," +
                          "category VARCHAR(100) DEFAULT 'General'" + // Added category column
                          ")");
 
@@ -517,13 +516,11 @@ class Project {
 class Experience {
     private int id;
     private String name;
-    private String level;
     private String category; // New field for skill category
 
     public Experience(int id, String name, String level, String category) {
         this.id = id;
         this.name = name;
-        this.level = level;
         this.category = category;
     }
 
@@ -532,8 +529,6 @@ class Experience {
     public void setId(int id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public String getLevel() { return level; }
-    public void setLevel(String level) { this.level = level; }
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
 }
@@ -1466,9 +1461,6 @@ class ExperienceManagementPanel extends JPanel {
     private PortfolioAdminApp parentFrame;
     private JTabbedPane tabbedPane;
     private JTextField skillNameField; // Text field for skill name
-    private JComboBox<String> levelComboBox; // Combo box for level
-    // This array now only contains the predefined levels, categories are dynamic
-    private String[] levels = {"Beginner", "Intermediate", "Expert", "Master"};
 
     // New UI components for dynamic category management
     private JTextField newCategoryNameField;
@@ -1603,12 +1595,6 @@ class ExperienceManagementPanel extends JPanel {
         skillNameField = createStyledTextField();
         experienceFormPanel.add(skillNameField, gbc);
 
-        // Level ComboBox
-        gbc.gridx = 0; gbc.gridy = 1; experienceFormPanel.add(createStyledLabel("Level:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 1;
-        levelComboBox = createStyledComboBox(levels);
-        experienceFormPanel.add(levelComboBox, gbc);
-
         // Buttons for Experience Entries
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
@@ -1671,7 +1657,7 @@ class ExperienceManagementPanel extends JPanel {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false); // Transparent to show background gradient
 
-        String[] columnNames = {"ID", "Name", "Level"};
+        String[] columnNames = {"ID", "Name"};
         DefaultTableModel model = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -1840,12 +1826,12 @@ class ExperienceManagementPanel extends JPanel {
      * Loads all experience entries from the database into their respective category tables.
      */
     private void loadAllExperienceEntries() {
-        // Clear all table models first
+        // Clear all existing table models before reloading
         for (DefaultTableModel model : tableModels.values()) {
             model.setRowCount(0);
         }
 
-        String sql = "SELECT id, name, level, category FROM skills ORDER BY category, name";
+        String sql = "SELECT id, name, category FROM skills ORDER BY category, name"; // -- Removed 'level' from SELECT
         try (Connection conn = DatabaseManager.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -1853,19 +1839,20 @@ class ExperienceManagementPanel extends JPanel {
             while (rs.next()) {
                 int id = rs.getInt("id");
                 String name = rs.getString("name");
-                String level = rs.getString("level");
+                // REMOVED: String level = rs.getString("level"); // This line should be gone
                 String category = rs.getString("category");
 
                 DefaultTableModel model = tableModels.get(category);
                 if (model != null) {
-                    model.addRow(new Object[]{id, name, level});
+                    // CORRECTED: Only 'id' and 'name' are added to the row
+                    model.addRow(new Object[]{id, name}); //
                 } else {
                     System.err.println("Warning: Experience entry found with unknown category '" + category + "'. Skipping for display.");
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error loading experiences: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error loading experience entries: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -1901,12 +1888,10 @@ class ExperienceManagementPanel extends JPanel {
         if (selectedRow != -1) {
             int experienceId = (int) currentModel.getValueAt(selectedRow, 0);
             String experienceName = (String) currentModel.getValueAt(selectedRow, 1);
-            String experienceLevel = (String) currentModel.getValueAt(selectedRow, 2);
 
             // Store selected ID for this specific category
             selectedExperienceIds.put(category, experienceId);
             skillNameField.setText(experienceName);
-            levelComboBox.setSelectedItem(experienceLevel);
 
             addButton.setEnabled(false); // Disable add when editing
             updateButton.setEnabled(true);
@@ -1920,9 +1905,9 @@ class ExperienceManagementPanel extends JPanel {
     /**
      * Adds a new experience entry to the database based on the currently selected tab.
      */
-    private void addExperience() {
+   private void addExperience() {
         String name = skillNameField.getText().trim();
-        String level = (String) levelComboBox.getSelectedItem();
+        // REMOVED: String level = (String) levelComboBox.getSelectedItem(); // This line should be gone
         int selectedTabIndex = tabbedPane.getSelectedIndex();
 
         if (selectedTabIndex == -1) {
@@ -1931,17 +1916,19 @@ class ExperienceManagementPanel extends JPanel {
         }
         String category = tabbedPane.getTitleAt(selectedTabIndex).trim(); // Get current tab category
 
-        if (name.isEmpty() || level == null || level.isEmpty() || category.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Name, level, and category cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+        // Adjusted validation: 'level' check removed.
+        if (name.isEmpty() || category.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Name and category cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String sql = "INSERT INTO skills (name, level, category) VALUES (?, ?, ?)";
+        // CORRECTED SQL: No 'level' column in INSERT, adjusted parameter count.
+        String sql = "INSERT INTO skills (name, category) VALUES (?, ?)"; //
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, name);
-            pstmt.setString(2, level);
-            pstmt.setString(3, category);
+            // REMOVED: pstmt.setString(2, level); // This line should be gone
+            pstmt.setString(2, category); // -- This index changed from 3 to 2
             pstmt.executeUpdate();
             JOptionPane.showMessageDialog(this, "Experience added successfully to " + category + "!");
             clearForm();
@@ -1951,7 +1938,6 @@ class ExperienceManagementPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Error adding experience: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-
     /**
      * Updates an existing experience entry in the database.
      */
@@ -1970,19 +1956,21 @@ class ExperienceManagementPanel extends JPanel {
         }
 
         String name = skillNameField.getText().trim();
-        String level = (String) levelComboBox.getSelectedItem();
+        // REMOVED: String level = (String) levelComboBox.getSelectedItem(); // This line should be gone
 
-        if (name.isEmpty() || level == null || level.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Name and level cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+        // Adjusted validation: 'level' check removed.
+        if (name.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Name cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String sql = "UPDATE skills SET name = ?, level = ? WHERE id = ?";
+        // CORRECTED SQL: No 'level' column in UPDATE, adjusted parameter count.
+        String sql = "UPDATE skills SET name = ? WHERE id = ?"; //
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, name);
-            pstmt.setString(2, level);
-            pstmt.setInt(3, selectedId);
+            // REMOVED: pstmt.setString(2, level); // This line should be gone
+            pstmt.setInt(2, selectedId); // -- This index changed from 3 to 2
             pstmt.executeUpdate();
             JOptionPane.showMessageDialog(this, "Experience updated successfully in " + category + "!");
             clearForm();
@@ -2033,7 +2021,6 @@ class ExperienceManagementPanel extends JPanel {
      */
     private void clearForm() {
         skillNameField.setText("");
-        levelComboBox.setSelectedIndex(0);
 
         // Get the currently selected category tab to clear its selection.
         int selectedTabIndex = tabbedPane.getSelectedIndex();
@@ -2065,27 +2052,23 @@ class ExperienceManagementPanel extends JPanel {
             return;
         }
 
-        // Check if category already exists
         List<String> existingCategories = getDistinctExperienceCategories();
         if (existingCategories.contains(newCategory)) {
             JOptionPane.showMessageDialog(this, "Category '" + newCategory + "' already exists.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Add a dummy entry to create the category in the DB.
-        // This is a simple way to ensure the category exists in the `skills` table
-        // so it appears in the distinct categories list when reloaded.
-        String sql = "INSERT INTO skills (name, level, category) VALUES (?, ?, ?)";
+        // CORRECTED SQL: No 'level' column in INSERT.
+        String sql = "INSERT INTO skills (name, category) VALUES (?, ?)"; //
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, "New Entry"); // Dummy name
-            pstmt.setString(2, "Beginner");  // Dummy level
-            pstmt.setString(3, newCategory);
+            // REMOVED: pstmt.setString(2, "Beginner"); // This line should be gone
+            pstmt.setString(2, newCategory); // -- This index changed from 3 to 2
             pstmt.executeUpdate();
             JOptionPane.showMessageDialog(this, "Category '" + newCategory + "' added successfully!");
-            newCategoryNameField.setText(""); // Clear the field
+            newCategoryNameField.setText("");
             loadCategoriesAndExperiences(); // Reload all categories and experiences
-            // Select the newly added tab if possible
             int newTabIndex = tabbedPane.indexOfTab(newCategory);
             if (newTabIndex != -1) {
                 tabbedPane.setSelectedIndex(newTabIndex);
@@ -2095,28 +2078,28 @@ class ExperienceManagementPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Error adding new category: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-
+    
     /**
      * Overloaded method to add a category without user input (e.g., for default category).
      */
     private void addNewCategory(String categoryName) {
         String newCategory = categoryName.trim();
         if (newCategory.isEmpty()) {
-            return; // Should not happen with hardcoded value
+            return;
         }
 
-        // Only add if it doesn't exist
         List<String> existingCategories = getDistinctExperienceCategories();
         if (existingCategories.contains(newCategory)) {
             return;
         }
 
-        String sql = "INSERT INTO skills (name, level, category) VALUES (?, ?, ?)";
+        // CORRECTED SQL: No 'level' column in INSERT.
+        String sql = "INSERT INTO skills (name, category) VALUES (?, ?)"; //
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, "Sample Experience"); // Dummy data for the new category
-            pstmt.setString(2, "Beginner");
-            pstmt.setString(3, newCategory);
+            // REMOVED: pstmt.setString(2, "Beginner"); // This line should be gone
+            pstmt.setString(2, newCategory); // -- This index changed from 3 to 2
             pstmt.executeUpdate();
             System.out.println("Default category '" + newCategory + "' added.");
         } catch (SQLException e) {
