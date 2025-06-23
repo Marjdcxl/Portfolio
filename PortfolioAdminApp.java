@@ -380,10 +380,10 @@ public class PortfolioAdminApp extends JFrame {
                          "content TEXT NOT NULL" +
                          ")");
 
-            // NEW: Create 'about_details' table for structured About Me entries (Experience, Education, etc.)
+            // UPDATED: Create 'about_details' table, removed 'type' column
             stmt.execute("CREATE TABLE IF NOT EXISTS about_details (" +
                          "id INT AUTO_INCREMENT PRIMARY KEY," +
-                         "type VARCHAR(100) NOT NULL," + // e.g., "Experience", "Education"
+                         // "type VARCHAR(100) NOT NULL," + // e.g., "Experience", "Education" -- REMOVED
                          "heading VARCHAR(255) NOT NULL," + // e.g., "2+ years", "B.S.CpE. Bachelors Degree"
                          "description TEXT NOT NULL" + // e.g., "Frontend Development", "M.Sc. Masters Degree"
                          ")");
@@ -599,29 +599,32 @@ class About {
     public void setContent(String content) { this.content = content; }
 }
 
-// NEW: Represents a structured About Me detail entity (e.g., Experience, Education)
+/**
+ * UPDATED: Represents a structured About Me detail entity (e.g., Experience, Education),
+ * now without a 'type' field.
+ */
 class AboutDetail {
     private int id;
-    private String type; // e.g., "Experience", "Education"
-    private String heading; // e.g., "2+ years", "B.S.CpE. Bachelors Degree"
-    private String description; // e.g., "Frontend Development", "M.Sc. Masters Degree"
+    // Removed: private String type;
+    private String heading;
+    private String description;
 
-    public AboutDetail(int id, String type, String heading, String description) {
+    // Updated constructor
+    public AboutDetail(int id, String heading, String description) { // Removed type parameter
         this.id = id;
-        this.type = type;
         this.heading = heading;
         this.description = description;
     }
 
-    // Getters
+    // Getters (updated)
     public int getId() { return id; }
-    public String getType() { return type; }
+    // Removed: public String getType() { return type; }
     public String getHeading() { return heading; }
     public String getDescription() { return description; }
 
-    // Setters
+    // Setters (updated)
     public void setId(int id) { this.id = id; }
-    public void setType(String type) { this.type = type; }
+    // Removed: public void setType(String type) { this.type = type; }
     public void setHeading(String heading) { this.heading = heading; }
     public void setDescription(String description) { this.description = description; }
 }
@@ -2200,8 +2203,8 @@ class AboutManagementPanel extends JPanel {
     private int aboutId = -1; // To store the ID of the about entry (should be 1)
 
     // Components for the new "About Me Table" tab (for the single large text entry)
-    private DefaultTableModel aboutTableModel;
-    private JTable aboutTable;
+    // private DefaultTableModel aboutTableModel; // Removed as the table is removed
+    // private JTable aboutTable; // Removed as the table is removed
 
     // NEW: Panel for managing structured About Me details
     private AboutDetailsManagementPanel aboutDetailsPanel;
@@ -2267,7 +2270,7 @@ class AboutManagementPanel extends JPanel {
         
         aboutTabbedPane.addTab("About Me", aboutMeTextPanel);
 
-        // Removed the "About Me Table" tab as per your request
+        // REMOVED: "About Me Table" tab as per your request
         // JPanel aboutMeTablePanel = createStyledTitledPanel("About Me Main Text Table View", new BorderLayout(10, 10));
         // String[] columnNames = {"ID", "Content"};
         // aboutTableModel = new DefaultTableModel(columnNames, 0) {
@@ -2277,28 +2280,6 @@ class AboutManagementPanel extends JPanel {
         //     }
         // };
         // aboutTable = new JTable(aboutTableModel);
-
-        // // Table styling (reusing styling from other panels for consistency)
-        // aboutTable.setFont(PortfolioAdminApp.FONT_BODY);
-        // aboutTable.setRowHeight(30);
-        // aboutTable.getTableHeader().setFont(PortfolioAdminApp.FONT_HEADER);
-        // aboutTable.getTableHeader().setBackground(PortfolioAdminApp.PRIMARY_BLUE);
-        // aboutTable.getTableHeader().setForeground(Color.WHITE);
-        // aboutTable.setGridColor(PortfolioAdminApp.BORDER_COLOR);
-        // aboutTable.setSelectionBackground(new Color(173, 216, 230, 100));
-        // aboutTable.setSelectionForeground(PortfolioAdminApp.TEXT_DARK);
-        // aboutTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
-        //     @Override
-        //     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-        //         Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-        //         if (!isSelected) {
-        //             c.setBackground(row % 2 == 0 ? PortfolioAdminApp.BACKGROUND_PANEL : new Color(248, 248, 248));
-        //         }
-        //         c.setForeground(PortfolioAdminApp.TEXT_DARK);
-        //         setBorder(new EmptyBorder(5, 10, 5, 10)); // Cell padding
-        //         return c;
-        //     }
-        // });
 
         // JScrollPane tableScrollPane = new JScrollPane(aboutTable);
         // tableScrollPane.setBorder(BorderFactory.createCompoundBorder(
@@ -2374,7 +2355,8 @@ class AboutManagementPanel extends JPanel {
     }
 
     /**
-     * Loads the 'About Me' content from the database and populates both the text area and the table.
+     * Loads the 'About Me' content from the database and populates the text area.
+     * The table model/table for the main about text is no longer used for display.
      */
     private void loadAboutContent() {
         String sql = "SELECT id, content FROM about LIMIT 1"; // Assuming only one 'about' entry
@@ -2382,17 +2364,13 @@ class AboutManagementPanel extends JPanel {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
 
-            // The aboutTableModel is no longer being used directly for display in a tab,
-            // but it's still being populated here as it's part of the existing logic.
-            // If the user wants to remove all traces of this table, this part could also be removed.
-            // For now, I'll keep it as the table model itself is a small memory footprint.
-            // aboutTableModel.setRowCount(0); // Clear table before loading - commented out as table is gone
+            // aboutTableModel.setRowCount(0); // Removed as the table is removed
 
             if (rs.next()) {
                 aboutId = rs.getInt("id");
                 String content = rs.getString("content");
                 aboutContentArea.setText(content);
-                // aboutTableModel.addRow(new Object[]{aboutId, content}); // commented out as table is gone
+                // aboutTableModel.addRow(new Object[]{aboutId, content}); // Removed as the table is removed
             } else {
                 // If no 'about' entry exists, create a default one
                 String insertSql = "INSERT INTO about (content) VALUES (?)";
@@ -2405,7 +2383,7 @@ class AboutManagementPanel extends JPanel {
                     }
                     String defaultContent = "No about info yet. Please edit this section.";
                     aboutContentArea.setText(defaultContent);
-                    // aboutTableModel.addRow(new Object[]{aboutId, defaultContent}); // commented out as table is gone
+                    // aboutTableModel.addRow(new Object[]{aboutId, defaultContent}); // Removed as the table is removed
                 }
             }
         } catch (SQLException e) {
@@ -2451,7 +2429,7 @@ class AboutManagementPanel extends JPanel {
             }
             
             JOptionPane.showMessageDialog(this, "About Me content saved successfully!");
-            // Re-load to refresh both the text area and the table
+            // Re-load to refresh the text area
             loadAboutContent(); 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -2461,20 +2439,21 @@ class AboutManagementPanel extends JPanel {
 }
 
 /**
- * NEW: Panel for managing structured 'About Me' details (e.g., Experience, Education).
- * Allows viewing, adding, editing, and deleting these structured entries.
+ * UPDATED: Panel for managing structured 'About Me' details.
+ * Removed 'type' field from form and table display.
  */
 class AboutDetailsManagementPanel extends JPanel {
     private PortfolioAdminApp parentFrame;
     private DefaultTableModel tableModel;
     private JTable detailsTable;
-    private JTextField typeField, headingField;
+    // private JTextField typeField; // Removed: type field
+    private JTextField headingField;
     private JTextArea descriptionArea;
     private JButton addButton, updateButton, deleteButton, clearButton;
     private int selectedDetailId = -1; // To store the ID of the selected detail for editing/deleting
 
-    // Predefined types for structured About Me entries
-    private static final String[] DETAIL_TYPES = {"Experience", "Education", "Award", "Certification", "Volunteer Work", "Other"};
+    // Predefined types for structured About Me entries (now illustrative, not directly used in form)
+    // private static final String[] DETAIL_TYPES = {"Experience", "Education", "Award", "Certification", "Volunteer Work", "Other"};
 
     /**
      * Constructor for AboutDetailsManagementPanel.
@@ -2498,7 +2477,8 @@ class AboutDetailsManagementPanel extends JPanel {
 
 
         // --- Center Panel: Table of About Details ---
-        String[] columnNames = {"ID", "Type", "Heading", "Description"};
+        // UPDATED: Removed "Type" from column names
+        String[] columnNames = {"ID", "Heading", "Description"};
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -2549,24 +2529,24 @@ class AboutDetailsManagementPanel extends JPanel {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Type
-        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(createStyledLabel("Type:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
-        typeField = createStyledTextField(); // Using a text field for type for now, can be JComboBox later
-        formPanel.add(typeField, gbc);
+        // Removed: Type field
+        // gbc.gridx = 0; gbc.gridy = 0; formPanel.add(createStyledLabel("Type:"), gbc);
+        // gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
+        // typeField = createStyledTextField();
+        // formPanel.add(typeField, gbc);
 
-        // Heading
-        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Heading:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 1; headingField = createStyledTextField(); formPanel.add(headingField, gbc);
+        // Heading (now at gridy 0)
+        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(createStyledLabel("Heading:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0; headingField = createStyledTextField(); formPanel.add(headingField, gbc);
 
-        // Description
-        gbc.gridx = 0; gbc.gridy = 2; formPanel.add(createStyledLabel("Description:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 2; descriptionArea = createStyledTextArea(4, 20);
+        // Description (now at gridy 1)
+        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Description:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 1; descriptionArea = createStyledTextArea(4, 20);
         JScrollPane descScrollPane = new JScrollPane(descriptionArea);
         descScrollPane.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true));
         formPanel.add(descScrollPane, gbc);
 
-        // Buttons
+        // Buttons (gridy adjusted)
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
         addButton = createStyledButton(
@@ -2608,7 +2588,7 @@ class AboutDetailsManagementPanel extends JPanel {
         buttonPanel.add(deleteButton);
         buttonPanel.add(clearButton);
 
-        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2;
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2; // Adjusted gridy
         gbc.insets = new Insets(20, 10, 10, 10);
         formPanel.add(buttonPanel, gbc);
         add(formPanel, BorderLayout.SOUTH);
@@ -2674,17 +2654,19 @@ class AboutDetailsManagementPanel extends JPanel {
      */
     private void loadAboutDetails() {
         tableModel.setRowCount(0); // Clear existing data
-        String sql = "SELECT id, type, heading, description FROM about_details ORDER BY type, heading";
+        // UPDATED SQL: Removed 'type' from SELECT
+        String sql = "SELECT id, heading, description FROM about_details ORDER BY heading";
         try (Connection conn = DatabaseManager.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
                 int id = rs.getInt("id");
-                String type = rs.getString("type");
+                // String type = rs.getString("type"); // Removed
                 String heading = rs.getString("heading");
                 String description = rs.getString("description");
-                tableModel.addRow(new Object[]{id, type, heading, description});
+                // UPDATED: Added to table model without 'type'
+                tableModel.addRow(new Object[]{id, heading, description});
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -2699,9 +2681,9 @@ class AboutDetailsManagementPanel extends JPanel {
         int selectedRow = detailsTable.getSelectedRow();
         if (selectedRow != -1) {
             selectedDetailId = (int) tableModel.getValueAt(selectedRow, 0);
-            typeField.setText((String) tableModel.getValueAt(selectedRow, 1));
-            headingField.setText((String) tableModel.getValueAt(selectedRow, 2));
-            descriptionArea.setText((String) tableModel.getValueAt(selectedRow, 3));
+            // typeField.setText((String) tableModel.getValueAt(selectedRow, 1)); // Removed
+            headingField.setText((String) tableModel.getValueAt(selectedRow, 1)); // Adjusted index
+            descriptionArea.setText((String) tableModel.getValueAt(selectedRow, 2)); // Adjusted index
 
             addButton.setEnabled(false); // Disable add when editing
             updateButton.setEnabled(true);
@@ -2713,28 +2695,31 @@ class AboutDetailsManagementPanel extends JPanel {
      * Adds a new structured about detail entry to the database.
      */
     private void addDetail() {
-        String type = typeField.getText().trim();
+        // String type = typeField.getText().trim(); // Removed
         String heading = headingField.getText().trim();
         String description = descriptionArea.getText().trim();
 
-        if (type.isEmpty() || heading.isEmpty() || description.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Type, Heading, and Description cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+        // UPDATED: Validation without 'type'
+        if (heading.isEmpty() || description.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Heading and Description cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String sql = "INSERT INTO about_details (type, heading, description) VALUES (?, ?, ?)";
+        // UPDATED SQL: Insert into about_details without 'type'
+        String sql = "INSERT INTO about_details (heading, description) VALUES (?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setString(1, type);
-            pstmt.setString(2, heading);
-            pstmt.setString(3, description);
+            // pstmt.setString(1, type); // Removed
+            pstmt.setString(1, heading);
+            pstmt.setString(2, description);
 
             int affectedRows = pstmt.executeUpdate();
             if (affectedRows > 0) {
                 try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
                         int id = generatedKeys.getInt(1);
-                        tableModel.addRow(new Object[]{id, type, heading, description});
+                        // UPDATED: Add to table model without 'type'
+                        tableModel.addRow(new Object[]{id, heading, description});
                         JOptionPane.showMessageDialog(this, "About Me detail added successfully!");
                         clearForm();
                     }
@@ -2755,22 +2740,24 @@ class AboutDetailsManagementPanel extends JPanel {
             return;
         }
 
-        String type = typeField.getText().trim();
+        // String type = typeField.getText().trim(); // Removed
         String heading = headingField.getText().trim();
         String description = descriptionArea.getText().trim();
 
-        if (type.isEmpty() || heading.isEmpty() || description.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Type, Heading, and Description cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+        // UPDATED: Validation without 'type'
+        if (heading.isEmpty() || description.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Heading and Description cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        String sql = "UPDATE about_details SET type = ?, heading = ?, description = ? WHERE id = ?";
+        // UPDATED SQL: Update about_details without 'type'
+        String sql = "UPDATE about_details SET heading = ?, description = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, type);
-            pstmt.setString(2, heading);
-            pstmt.setString(3, description);
-            pstmt.setInt(4, selectedDetailId);
+            // pstmt.setString(1, type); // Removed
+            pstmt.setString(1, heading);
+            pstmt.setString(2, description);
+            pstmt.setInt(3, selectedDetailId); // Adjusted index
             pstmt.executeUpdate();
 
             JOptionPane.showMessageDialog(this, "About Me detail updated successfully!");
@@ -2812,7 +2799,7 @@ class AboutDetailsManagementPanel extends JPanel {
      * Clears the form fields and resets the selected detail ID.
      */
     private void clearForm() {
-        typeField.setText("");
+        // typeField.setText(""); // Removed
         headingField.setText("");
         descriptionArea.setText("");
         selectedDetailId = -1;
@@ -2839,7 +2826,7 @@ class ContactManagementPanel extends JPanel {
     private int selectedDeletedContactId = -1; // For deleted contacts
 
     // Combined platform options, including "Other" for custom entries
-    private static final String[] PLATFORMS = {"", "Email", "Phone", "Other"};
+    private static final String[] PLATFORMS = {"", "Email", "Phone","Other"};
 
     /**
      * Constructor for ContactManagementPanel.
@@ -2985,9 +2972,9 @@ class ContactManagementPanel extends JPanel {
         platformComboBox = createStyledComboBox(PLATFORMS);
         formPanel.add(platformComboBox, gbc);
 
-        // Details
-gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Details:"), gbc);
-gbc.gridx = 1; gbc.gridy = 1; linkField = createStyledTextField(); formPanel.add(linkField, gbc);
+        // Link
+        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Link:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 1; linkField = createStyledTextField(); formPanel.add(linkField, gbc);
 
         // Buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
@@ -3198,29 +3185,21 @@ gbc.gridx = 1; gbc.gridy = 1; linkField = createStyledTextField(); formPanel.add
             return;
         }
 
-        // FIX: The original code in PortfolioAdminApp.java had an issue with 'type' column
-        // We will assume 'platform' is what should be stored for the type/value.
         // The table creation only defines 'platform' and 'link'. No 'type' or 'value' column.
         // So, we'll store only platform and link.
-        String sql = "INSERT INTO contacts (type, value, platform, link, deleted) VALUES (?, ?, ?, ?, 0)";
-try (Connection conn = DatabaseManager.getConnection();
-     PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-    // You can customize the type here (e.g., "social", "contact", etc.)
-    pstmt.setString(1, "contact");  // <-- FIXED: type field
-    pstmt.setString(2, link);       // <-- FIXED: value field (using link as a placeholder)
-    pstmt.setString(3, platform);
-    pstmt.setString(4, link);
-    
-    pstmt.executeUpdate();
-    JOptionPane.showMessageDialog(this, "Contact added successfully!");
-    clearForm();
-    loadContacts(); // Refresh tables
-} catch (SQLException e) {
-    e.printStackTrace();
-    JOptionPane.showMessageDialog(this, "Error adding contact: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
-}
-
+        String sql = "INSERT INTO contacts (platform, link, deleted) VALUES (?, ?, 0)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, platform);
+            pstmt.setString(2, link);
+            pstmt.executeUpdate();
+            JOptionPane.showMessageDialog(this, "Contact added successfully!");
+            clearForm();
+            loadContacts(); // Refresh tables
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error adding contact: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     /**
@@ -3361,4 +3340,4 @@ try (Connection conn = DatabaseManager.getConnection();
         restoreButton.setEnabled(false);
         hardDeleteButton.setEnabled(false); // Disable hard delete by default until a contact is selected
     }
-}   
+}
