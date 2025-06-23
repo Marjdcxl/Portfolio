@@ -2839,7 +2839,7 @@ class ContactManagementPanel extends JPanel {
     private int selectedDeletedContactId = -1; // For deleted contacts
 
     // Combined platform options, including "Other" for custom entries
-    private static final String[] PLATFORMS = {"", "Email", "Phone", "LinkedIn", "GitHub", "Website", "Twitter", "Facebook", "Instagram", "Discord", "Telegram", "WhatsApp", "YouTube", "Blog", "Other"};
+    private static final String[] PLATFORMS = {"", "Email", "Phone", "Other"};
 
     /**
      * Constructor for ContactManagementPanel.
@@ -2985,9 +2985,9 @@ class ContactManagementPanel extends JPanel {
         platformComboBox = createStyledComboBox(PLATFORMS);
         formPanel.add(platformComboBox, gbc);
 
-        // Link
-        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Link:"), gbc);
-        gbc.gridx = 1; gbc.gridy = 1; linkField = createStyledTextField(); formPanel.add(linkField, gbc);
+        // Details
+gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Details:"), gbc);
+gbc.gridx = 1; gbc.gridy = 1; linkField = createStyledTextField(); formPanel.add(linkField, gbc);
 
         // Buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
@@ -3202,19 +3202,25 @@ class ContactManagementPanel extends JPanel {
         // We will assume 'platform' is what should be stored for the type/value.
         // The table creation only defines 'platform' and 'link'. No 'type' or 'value' column.
         // So, we'll store only platform and link.
-        String sql = "INSERT INTO contacts (platform, link, deleted) VALUES (?, ?, 0)";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, platform);
-            pstmt.setString(2, link);
-            pstmt.executeUpdate();
-            JOptionPane.showMessageDialog(this, "Contact added successfully!");
-            clearForm();
-            loadContacts(); // Refresh tables
-        } catch (SQLException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error adding contact: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
-        }
+        String sql = "INSERT INTO contacts (type, value, platform, link, deleted) VALUES (?, ?, ?, ?, 0)";
+try (Connection conn = DatabaseManager.getConnection();
+     PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+    // You can customize the type here (e.g., "social", "contact", etc.)
+    pstmt.setString(1, "contact");  // <-- FIXED: type field
+    pstmt.setString(2, link);       // <-- FIXED: value field (using link as a placeholder)
+    pstmt.setString(3, platform);
+    pstmt.setString(4, link);
+    
+    pstmt.executeUpdate();
+    JOptionPane.showMessageDialog(this, "Contact added successfully!");
+    clearForm();
+    loadContacts(); // Refresh tables
+} catch (SQLException e) {
+    e.printStackTrace();
+    JOptionPane.showMessageDialog(this, "Error adding contact: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+}
+
     }
 
     /**
@@ -3355,4 +3361,4 @@ class ContactManagementPanel extends JPanel {
         restoreButton.setEnabled(false);
         hardDeleteButton.setEnabled(false); // Disable hard delete by default until a contact is selected
     }
-}
+}   
