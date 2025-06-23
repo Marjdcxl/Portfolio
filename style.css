@@ -304,23 +304,42 @@ section {
 
 #about {
   position: relative;
-  height: fit-content
+  height: fit-content;
+  /* Add padding to the whole section if needed to give content more room */
+  padding: 2rem 0;
 }
 
 .about-containers {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 2rem;
   margin-bottom: 2rem;
   margin-top: 2rem;
 }
 
 .about-details-container {
-  justify-content: center;
+  display: flex; /* Ensure it's a flex container for its internal elements */
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 1rem; /* Add some padding to this inner container if it holds direct text */
+}
+
+.about-details-container p {
+  /* Style the paragraphs within these detail containers */
+  line-height: 1.5; /* Improve readability with more space between lines */
+  margin-top: 0.5rem; /* Add a small margin above the text if needed */
+  word-wrap: break-word; /* Ensure long words break and wrap */
+  overflow-wrap: break-word; /* Modern equivalent for word-wrap */
+  hyphens: auto; /* Allow hyphenation for better text flow */
 }
 
 .about-details-container .icon {
-    width: 1.5rem; /* Adjust as needed */
-    height: 1.5rem; /* Adjust as needed */
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .about-containers,
@@ -336,16 +355,26 @@ section {
   position: absolute;
   right: -5rem;
   bottom: 2.5rem;
-    width: 3rem;
-    height: 3rem;
+  width: 3rem;
+  height: 3rem;
 }
 
 .details-container {
   flex: 1;
-  padding: 1.5rem;
+  min-width: 250px;
+  max-width: 30%;
+  padding: 1.5rem; /* Ensure sufficient internal padding */
   border: rgb(53, 53, 53) 0.1rem solid;
   border-radius: 2rem;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.details-container h3 {
+  margin-bottom: 0.5rem; /* Space between title and description */
 }
 
 .section-container {
@@ -357,6 +386,32 @@ section {
   height: 400px;
   width: 400px;
   margin: auto 0;
+}
+
+/* Adjustments for the main paragraph text content */
+.text-container {
+  text-align: justify;
+  margin-top: 2rem;
+  padding: 0 1rem;
+  line-height: 1.6; /* Increased line height for better readability */
+  max-width: 800px; /* Optional: Limit max width for long lines of text */
+  margin-left: auto; /* Center the text container if max-width is set */
+  margin-right: auto; /* Center the text container if max-width is set */
+  word-wrap: break-word; /* Ensure long words break */
+  overflow-wrap: break-word; /* Modern equivalent for word-wrap */
+  hyphens: auto; /* Allow hyphenation for better text flow */
+}
+
+/* Media Query for smaller screens */
+@media screen and (max-width: 768px) {
+  .details-container {
+    max-width: 80%;
+    min-width: unset;
+  }
+  .text-container {
+    padding: 0 1rem; /* Adjust padding for smaller screens if needed */
+    max-width: unset; /* Remove max-width on small screens */
+  }
 }
 
 /* EXPERIENCE SECTION */
