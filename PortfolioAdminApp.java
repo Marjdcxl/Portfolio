@@ -374,10 +374,18 @@ public class PortfolioAdminApp extends JFrame {
                          "category VARCHAR(100) DEFAULT 'General'" + // Added category column
                          ")");
 
-            // Create 'about' table
+            // Create 'about' table (for the main text block)
             stmt.execute("CREATE TABLE IF NOT EXISTS about (" +
                          "id INT AUTO_INCREMENT PRIMARY KEY," +
                          "content TEXT NOT NULL" +
+                         ")");
+
+            // NEW: Create 'about_details' table for structured About Me entries (Experience, Education, etc.)
+            stmt.execute("CREATE TABLE IF NOT EXISTS about_details (" +
+                         "id INT AUTO_INCREMENT PRIMARY KEY," +
+                         "type VARCHAR(100) NOT NULL," + // e.g., "Experience", "Education"
+                         "heading VARCHAR(255) NOT NULL," + // e.g., "2+ years", "B.S.CpE. Bachelors Degree"
+                         "description TEXT NOT NULL" + // e.g., "Frontend Development", "M.Sc. Masters Degree"
                          ")");
 
             // Create 'projects' table (Updated to use image_url VARCHAR for storing URLs)
@@ -479,7 +487,8 @@ class DatabaseManager {
             pstmt.setString(2, hashedPassword);
             ResultSet rs = pstmt.executeQuery();
             return rs.next(); // Returns true if a row is found (user exists with credentials)
-        } catch (SQLException e) {
+        }
+        catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(null, "Authentication error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             return false;
@@ -589,6 +598,34 @@ class About {
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
 }
+
+// NEW: Represents a structured About Me detail entity (e.g., Experience, Education)
+class AboutDetail {
+    private int id;
+    private String type; // e.g., "Experience", "Education"
+    private String heading; // e.g., "2+ years", "B.S.CpE. Bachelors Degree"
+    private String description; // e.g., "Frontend Development", "M.Sc. Masters Degree"
+
+    public AboutDetail(int id, String type, String heading, String description) {
+        this.id = id;
+        this.type = type;
+        this.heading = heading;
+        this.description = description;
+    }
+
+    // Getters
+    public int getId() { return id; }
+    public String getType() { return type; }
+    public String getHeading() { return heading; }
+    public String getDescription() { return description; }
+
+    // Setters
+    public void setId(int id) { this.id = id; }
+    public void setType(String type) { this.type = type; }
+    public void setHeading(String heading) { this.heading = heading; }
+    public void setDescription(String description) { this.description = description; }
+}
+
 
 /**
  * Login Panel for the application.
@@ -2152,13 +2189,22 @@ class ExperienceManagementPanel extends JPanel {
 
 /**
  * Panel for managing the 'About Me' content.
- * Allows viewing and editing the 'About Me' text.
+ * Allows viewing and editing the 'About Me' text, now with an additional tab for a table view.
+ * This panel now also incorporates a new AboutDetailsManagementPanel for structured content.
  */
 class AboutManagementPanel extends JPanel {
     private PortfolioAdminApp parentFrame;
+    private JTabbedPane aboutTabbedPane; // New tabbed pane for About Me section
     private JTextArea aboutContentArea;
     private JButton saveButton;
     private int aboutId = -1; // To store the ID of the about entry (should be 1)
+
+    // Components for the new "About Me Table" tab (for the single large text entry)
+    private DefaultTableModel aboutTableModel;
+    private JTable aboutTable;
+
+    // NEW: Panel for managing structured About Me details
+    private AboutDetailsManagementPanel aboutDetailsPanel;
 
     /**
      * Constructor for AboutManagementPanel.
@@ -2167,13 +2213,12 @@ class AboutManagementPanel extends JPanel {
     public AboutManagementPanel(PortfolioAdminApp parent) {
         this.parentFrame = parent;
         setLayout(new BorderLayout(20, 20));
-        // This panel is transparent to show the parent's gradient background
         setOpaque(false);
         setBorder(new EmptyBorder(25, 25, 25, 25));
 
         // --- North Panel: Title and Back Button ---
         JPanel northPanel = new JPanel(new BorderLayout());
-        northPanel.setOpaque(false); // Make transparent
+        northPanel.setOpaque(false);
         JLabel titleLabel = new JLabel("Manage About Me Content", SwingConstants.CENTER);
         titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
         titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
@@ -2190,29 +2235,89 @@ class AboutManagementPanel extends JPanel {
         northPanel.add(backButton, BorderLayout.WEST);
         add(northPanel, BorderLayout.NORTH);
 
-        // --- Center Panel: About Me Content Area ---
-        JPanel contentPanel = createStyledTitledPanel("About Me Text", new BorderLayout(10, 10));
-        aboutContentArea = createStyledTextArea(15, 50);
-        JScrollPane scrollPane = new JScrollPane(aboutContentArea);
-        scrollPane.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true));
-        contentPanel.add(scrollPane, BorderLayout.CENTER);
-        add(contentPanel, BorderLayout.CENTER);
+        // --- Center Panel: Tabbed Pane ---
+        aboutTabbedPane = new JTabbedPane();
+        aboutTabbedPane.setFont(PortfolioAdminApp.FONT_HEADER);
+        aboutTabbedPane.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        aboutTabbedPane.setForeground(PortfolioAdminApp.TEXT_DARK);
+        aboutTabbedPane.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(5, 5, 5, 5)
+        ));
 
-        // --- South Panel: Save Button ---
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL); // Match panel background
+        // Create "About Me" (Text Editor) Tab
+        JPanel aboutMeTextPanel = createStyledTitledPanel("About Me Main Text Editor", new BorderLayout(10, 10));
+        aboutContentArea = createStyledTextArea(15, 50);
+        JScrollPane textScrollPane = new JScrollPane(aboutContentArea);
+        textScrollPane.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true));
+        aboutMeTextPanel.add(textScrollPane, BorderLayout.CENTER);
+
+        JPanel textButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        textButtonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
         saveButton = createStyledButton(
-            "Save About Me",
+            "Save Main About Me Text",
             PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
             PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
             PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
             PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
         );
         saveButton.addActionListener(e -> saveAboutContent());
-        buttonPanel.add(saveButton);
-        add(buttonPanel, BorderLayout.SOUTH);
+        textButtonPanel.add(saveButton);
+        aboutMeTextPanel.add(textButtonPanel, BorderLayout.SOUTH);
+        
+        aboutTabbedPane.addTab("About Me", aboutMeTextPanel);
 
-        loadAboutContent(); // Load content when panel is initialized
+        // Removed the "About Me Table" tab as per your request
+        // JPanel aboutMeTablePanel = createStyledTitledPanel("About Me Main Text Table View", new BorderLayout(10, 10));
+        // String[] columnNames = {"ID", "Content"};
+        // aboutTableModel = new DefaultTableModel(columnNames, 0) {
+        //     @Override
+        //     public boolean isCellEditable(int row, int column) {
+        //         return false; // Make cells uneditable
+        //     }
+        // };
+        // aboutTable = new JTable(aboutTableModel);
+
+        // // Table styling (reusing styling from other panels for consistency)
+        // aboutTable.setFont(PortfolioAdminApp.FONT_BODY);
+        // aboutTable.setRowHeight(30);
+        // aboutTable.getTableHeader().setFont(PortfolioAdminApp.FONT_HEADER);
+        // aboutTable.getTableHeader().setBackground(PortfolioAdminApp.PRIMARY_BLUE);
+        // aboutTable.getTableHeader().setForeground(Color.WHITE);
+        // aboutTable.setGridColor(PortfolioAdminApp.BORDER_COLOR);
+        // aboutTable.setSelectionBackground(new Color(173, 216, 230, 100));
+        // aboutTable.setSelectionForeground(PortfolioAdminApp.TEXT_DARK);
+        // aboutTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+        //     @Override
+        //     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        //         Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+        //         if (!isSelected) {
+        //             c.setBackground(row % 2 == 0 ? PortfolioAdminApp.BACKGROUND_PANEL : new Color(248, 248, 248));
+        //         }
+        //         c.setForeground(PortfolioAdminApp.TEXT_DARK);
+        //         setBorder(new EmptyBorder(5, 10, 5, 10)); // Cell padding
+        //         return c;
+        //     }
+        // });
+
+        // JScrollPane tableScrollPane = new JScrollPane(aboutTable);
+        // tableScrollPane.setBorder(BorderFactory.createCompoundBorder(
+        //         new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+        //         new EmptyBorder(5, 5, 5, 5)
+        // ));
+        // aboutMeTablePanel.add(tableScrollPane, BorderLayout.CENTER);
+        
+        // aboutTabbedPane.addTab("About Me Table", aboutMeTablePanel);
+
+        // NEW: Create and add the AboutDetailsManagementPanel tab
+        aboutDetailsPanel = new AboutDetailsManagementPanel(parent);
+        aboutDetailsPanel.setOpaque(false); // Make transparent
+        aboutTabbedPane.addTab("About Me Details", aboutDetailsPanel);
+
+        add(aboutTabbedPane, BorderLayout.CENTER);
+
+        loadAboutContent(); // Load main content when panel is initialized
+        // Note: aboutDetailsPanel will load its own data in its constructor
     }
 
     /** Helper method to create a styled JTextArea. */
@@ -2269,7 +2374,7 @@ class AboutManagementPanel extends JPanel {
     }
 
     /**
-     * Loads the 'About Me' content from the database.
+     * Loads the 'About Me' content from the database and populates both the text area and the table.
      */
     private void loadAboutContent() {
         String sql = "SELECT id, content FROM about LIMIT 1"; // Assuming only one 'about' entry
@@ -2277,9 +2382,17 @@ class AboutManagementPanel extends JPanel {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
 
+            // The aboutTableModel is no longer being used directly for display in a tab,
+            // but it's still being populated here as it's part of the existing logic.
+            // If the user wants to remove all traces of this table, this part could also be removed.
+            // For now, I'll keep it as the table model itself is a small memory footprint.
+            // aboutTableModel.setRowCount(0); // Clear table before loading - commented out as table is gone
+
             if (rs.next()) {
                 aboutId = rs.getInt("id");
-                aboutContentArea.setText(rs.getString("content"));
+                String content = rs.getString("content");
+                aboutContentArea.setText(content);
+                // aboutTableModel.addRow(new Object[]{aboutId, content}); // commented out as table is gone
             } else {
                 // If no 'about' entry exists, create a default one
                 String insertSql = "INSERT INTO about (content) VALUES (?)";
@@ -2290,7 +2403,9 @@ class AboutManagementPanel extends JPanel {
                     if (generatedKeys.next()) {
                         aboutId = generatedKeys.getInt(1);
                     }
-                    aboutContentArea.setText("No about info yet. Please edit this section.");
+                    String defaultContent = "No about info yet. Please edit this section.";
+                    aboutContentArea.setText(defaultContent);
+                    // aboutTableModel.addRow(new Object[]{aboutId, defaultContent}); // commented out as table is gone
                 }
             }
         } catch (SQLException e) {
@@ -2314,25 +2429,400 @@ class AboutManagementPanel extends JPanel {
         if (aboutId != -1) {
             sql = "UPDATE about SET content = ? WHERE id = ?";
         } else {
-            sql = "INSERT INTO about (content) VALUES (?)"; // Fallback if ID somehow lost
+            // This case should ideally not happen if loadAboutContent is called,
+            // but as a fallback, insert if ID is missing.
+            sql = "INSERT INTO about (content) VALUES (?)"; 
         }
 
         try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setString(1, content);
             if (aboutId != -1) {
                 pstmt.setInt(2, aboutId);
             }
             pstmt.executeUpdate();
+
+            // If it was an insert and aboutId was -1, get the new ID
+            if (aboutId == -1) {
+                ResultSet generatedKeys = pstmt.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    aboutId = generatedKeys.getInt(1);
+                }
+            }
+            
             JOptionPane.showMessageDialog(this, "About Me content saved successfully!");
-            // Re-load to ensure ID is correct if it was an insert
-            loadAboutContent();
+            // Re-load to refresh both the text area and the table
+            loadAboutContent(); 
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Error saving about content: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 }
+
+/**
+ * NEW: Panel for managing structured 'About Me' details (e.g., Experience, Education).
+ * Allows viewing, adding, editing, and deleting these structured entries.
+ */
+class AboutDetailsManagementPanel extends JPanel {
+    private PortfolioAdminApp parentFrame;
+    private DefaultTableModel tableModel;
+    private JTable detailsTable;
+    private JTextField typeField, headingField;
+    private JTextArea descriptionArea;
+    private JButton addButton, updateButton, deleteButton, clearButton;
+    private int selectedDetailId = -1; // To store the ID of the selected detail for editing/deleting
+
+    // Predefined types for structured About Me entries
+    private static final String[] DETAIL_TYPES = {"Experience", "Education", "Award", "Certification", "Volunteer Work", "Other"};
+
+    /**
+     * Constructor for AboutDetailsManagementPanel.
+     * @param parent The main application frame.
+     */
+    public AboutDetailsManagementPanel(PortfolioAdminApp parent) {
+        this.parentFrame = parent;
+        setLayout(new BorderLayout(20, 20));
+        setOpaque(false); // Make transparent to show background gradient
+        setBorder(new EmptyBorder(25, 25, 25, 25));
+
+        // --- North Panel: Title (inside this panel) ---
+        // No back button here as this is a sub-panel within AboutManagementPanel's tabbed pane.
+        JPanel northPanel = new JPanel(new BorderLayout());
+        northPanel.setOpaque(false);
+        JLabel titleLabel = new JLabel("Manage Structured About Me Details", SwingConstants.CENTER);
+        titleLabel.setFont(PortfolioAdminApp.FONT_SUBTITLE);
+        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
+        northPanel.add(titleLabel, BorderLayout.CENTER);
+        add(northPanel, BorderLayout.NORTH);
+
+
+        // --- Center Panel: Table of About Details ---
+        String[] columnNames = {"ID", "Type", "Heading", "Description"};
+        tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Make cells uneditable
+            }
+        };
+        detailsTable = new JTable(tableModel);
+        detailsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        detailsTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && detailsTable.getSelectedRow() != -1) {
+                displaySelectedDetail();
+            }
+        });
+
+        // Table styling (reusing styling from other panels for consistency)
+        detailsTable.setFont(PortfolioAdminApp.FONT_BODY);
+        detailsTable.setRowHeight(30);
+        detailsTable.getTableHeader().setFont(PortfolioAdminApp.FONT_HEADER);
+        detailsTable.getTableHeader().setBackground(PortfolioAdminApp.PRIMARY_BLUE);
+        detailsTable.getTableHeader().setForeground(Color.WHITE);
+        detailsTable.setGridColor(PortfolioAdminApp.BORDER_COLOR);
+        detailsTable.setSelectionBackground(new Color(173, 216, 230, 100));
+        detailsTable.setSelectionForeground(PortfolioAdminApp.TEXT_DARK);
+        detailsTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (!isSelected) {
+                    c.setBackground(row % 2 == 0 ? PortfolioAdminApp.BACKGROUND_PANEL : new Color(248, 248, 248));
+                }
+                c.setForeground(PortfolioAdminApp.TEXT_DARK);
+                setBorder(new EmptyBorder(5, 10, 5, 10)); // Cell padding
+                return c;
+            }
+        });
+
+        JScrollPane scrollPane = new JScrollPane(detailsTable);
+        scrollPane.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(5, 5, 5, 5)
+        ));
+        add(scrollPane, BorderLayout.CENTER);
+
+
+        // --- South Panel: Form for Add/Edit About Detail ---
+        JPanel formPanel = createStyledTitledPanel("Detail Entry Form", new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Type
+        gbc.gridx = 0; gbc.gridy = 0; formPanel.add(createStyledLabel("Type:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 1.0;
+        typeField = createStyledTextField(); // Using a text field for type for now, can be JComboBox later
+        formPanel.add(typeField, gbc);
+
+        // Heading
+        gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Heading:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 1; headingField = createStyledTextField(); formPanel.add(headingField, gbc);
+
+        // Description
+        gbc.gridx = 0; gbc.gridy = 2; formPanel.add(createStyledLabel("Description:"), gbc);
+        gbc.gridx = 1; gbc.gridy = 2; descriptionArea = createStyledTextArea(4, 20);
+        JScrollPane descScrollPane = new JScrollPane(descriptionArea);
+        descScrollPane.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true));
+        formPanel.add(descScrollPane, gbc);
+
+        // Buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        buttonPanel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        addButton = createStyledButton(
+            "Add Detail",
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_GREEN_HOVER_END
+        );
+        updateButton = createStyledButton(
+            "Update Detail",
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
+        deleteButton = createStyledButton(
+            "Delete Detail",
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_END,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_START,
+            PortfolioAdminApp.GRADIENT_ACCENT_RED_HOVER_END
+        );
+        clearButton = createStyledButton(
+            "Clear Form",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END
+        );
+
+        addButton.addActionListener(e -> addDetail());
+        updateButton.addActionListener(e -> updateDetail());
+        deleteButton.addActionListener(e -> deleteDetail());
+        clearButton.addActionListener(e -> clearForm());
+
+        buttonPanel.add(addButton);
+        buttonPanel.add(updateButton);
+        buttonPanel.add(deleteButton);
+        buttonPanel.add(clearButton);
+
+        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2;
+        gbc.insets = new Insets(20, 10, 10, 10);
+        formPanel.add(buttonPanel, gbc);
+        add(formPanel, BorderLayout.SOUTH);
+
+        loadAboutDetails(); // Load data when panel is initialized
+        clearForm(); // Set initial button states
+    }
+
+    /** Helper method to create a styled JTextField. */
+    private JTextField createStyledTextField() {
+        JTextField field = new JTextField(25);
+        field.setFont(PortfolioAdminApp.FONT_BODY);
+        field.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
+        return field;
+    }
+
+    /** Helper method to create a styled JTextArea. */
+    private JTextArea createStyledTextArea(int rows, int cols) {
+        JTextArea area = new JTextArea(rows, cols);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        area.setFont(PortfolioAdminApp.FONT_BODY);
+        area.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
+        return area;
+    }
+
+    /** Helper method to create a styled GradientButton. */
+    private GradientButton createStyledButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd) {
+        return new GradientButton(text, start, end, hoverStart, hoverEnd);
+    }
+    
+    /** Helper method to create a styled JLabel. */
+    private JLabel createStyledLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(PortfolioAdminApp.FONT_BODY);
+        label.setForeground(PortfolioAdminApp.TEXT_DARK);
+        return label;
+    }
+
+    /** Helper method to create a styled Titled Panel. */
+    private JPanel createStyledTitledPanel(String title, LayoutManager layout) {
+        JPanel panel = new JPanel(layout);
+        panel.setBorder(BorderFactory.createTitledBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                title,
+                TitledBorder.LEFT, TitledBorder.TOP,
+                PortfolioAdminApp.FONT_HEADER,
+                PortfolioAdminApp.TEXT_DARK
+        ));
+        panel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        panel.putClientProperty("JComponent.roundRect", true);
+        return panel;
+    }
+
+    /**
+     * Loads all structured about details from the database and populates the table.
+     */
+    private void loadAboutDetails() {
+        tableModel.setRowCount(0); // Clear existing data
+        String sql = "SELECT id, type, heading, description FROM about_details ORDER BY type, heading";
+        try (Connection conn = DatabaseManager.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String type = rs.getString("type");
+                String heading = rs.getString("heading");
+                String description = rs.getString("description");
+                tableModel.addRow(new Object[]{id, type, heading, description});
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error loading About Me details: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Displays the details of the selected about detail entry in the form fields.
+     */
+    private void displaySelectedDetail() {
+        int selectedRow = detailsTable.getSelectedRow();
+        if (selectedRow != -1) {
+            selectedDetailId = (int) tableModel.getValueAt(selectedRow, 0);
+            typeField.setText((String) tableModel.getValueAt(selectedRow, 1));
+            headingField.setText((String) tableModel.getValueAt(selectedRow, 2));
+            descriptionArea.setText((String) tableModel.getValueAt(selectedRow, 3));
+
+            addButton.setEnabled(false); // Disable add when editing
+            updateButton.setEnabled(true);
+            deleteButton.setEnabled(true);
+        }
+    }
+
+    /**
+     * Adds a new structured about detail entry to the database.
+     */
+    private void addDetail() {
+        String type = typeField.getText().trim();
+        String heading = headingField.getText().trim();
+        String description = descriptionArea.getText().trim();
+
+        if (type.isEmpty() || heading.isEmpty() || description.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Type, Heading, and Description cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String sql = "INSERT INTO about_details (type, heading, description) VALUES (?, ?, ?)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setString(1, type);
+            pstmt.setString(2, heading);
+            pstmt.setString(3, description);
+
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        int id = generatedKeys.getInt(1);
+                        tableModel.addRow(new Object[]{id, type, heading, description});
+                        JOptionPane.showMessageDialog(this, "About Me detail added successfully!");
+                        clearForm();
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error adding About Me detail: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Updates an existing structured about detail entry in the database.
+     */
+    private void updateDetail() {
+        if (selectedDetailId == -1) {
+            JOptionPane.showMessageDialog(this, "No About Me detail selected for update.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String type = typeField.getText().trim();
+        String heading = headingField.getText().trim();
+        String description = descriptionArea.getText().trim();
+
+        if (type.isEmpty() || heading.isEmpty() || description.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Type, Heading, and Description cannot be empty.", "Input Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String sql = "UPDATE about_details SET type = ?, heading = ?, description = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, type);
+            pstmt.setString(2, heading);
+            pstmt.setString(3, description);
+            pstmt.setInt(4, selectedDetailId);
+            pstmt.executeUpdate();
+
+            JOptionPane.showMessageDialog(this, "About Me detail updated successfully!");
+            loadAboutDetails(); // Reload all details to update the table
+            clearForm();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error updating About Me detail: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Deletes the selected structured about detail entry from the database.
+     */
+    private void deleteDetail() {
+        if (selectedDetailId == -1) {
+            JOptionPane.showMessageDialog(this, "No About Me detail selected for deletion.", "Selection Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this About Me detail entry?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            String sql = "DELETE FROM about_details WHERE id = ?";
+            try (Connection conn = DatabaseManager.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, selectedDetailId);
+                pstmt.executeUpdate();
+                JOptionPane.showMessageDialog(this, "About Me detail deleted successfully!");
+                clearForm();
+                loadAboutDetails(); // Refresh table
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error deleting About Me detail: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    /**
+     * Clears the form fields and resets the selected detail ID.
+     */
+    private void clearForm() {
+        typeField.setText("");
+        headingField.setText("");
+        descriptionArea.setText("");
+        selectedDetailId = -1;
+        detailsTable.clearSelection(); // Deselect row
+        addButton.setEnabled(true);
+        updateButton.setEnabled(false);
+        deleteButton.setEnabled(false);
+    }
+}
+
 
 /**
  * Panel for managing contacts.
