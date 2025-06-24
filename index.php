@@ -90,15 +90,12 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Benjie Portfolio</title>
     <link rel="stylesheet" href="style.css" />
-    <!-- mediaqueries.css content is now merged into style.css -->
-  </head>
+    </head>
   <body>
-    <!-- Desktop Navigation -->
     <nav id="desktop-nav">
       <script src="script.js"></script>
       <div class="logo">
-        <a href="#">Portfolio</a> <!-- Added <a> tag with href="#" for scroll to top -->
-      </div>
+        <a href="#">Portfolio</a> </div>
       <div>
         <ul class="nav-links">
           <li><a href="#about">About</a></li>
@@ -108,12 +105,10 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
       </div>
     </nav>
 
-    <!-- Hamburger Navigation for Mobile -->
     <nav id="hamburger-nav">
       <script src="script.js"></script>
       <div class="logo">
-        <a href="#">Portfolio</a> <!-- Added <a> tag with href="#" for scroll to top -->
-      </div>
+        <a href="#">Portfolio</a> </div>
       <div class="hamburger-menu">
         <div class="hamburger-icon" onclick="toggleMenu()">
           <span></span>
@@ -128,10 +123,8 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
       </div>
     </nav>
 
-    <!-- Profile Section -->
     <section id="profile">
       <div class="section__pic-container">
-        <!-- Using the uploaded image for the profile picture -->
         <img src="./assets/profile-pic.png" alt="John Doe profile picture" />
       </div>
       <div class="section__text">
@@ -141,7 +134,7 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
         <div class="btn-container">
           <button
             class="btn btn-color-2"
-            onclick="window.open('./assets/cert.pdf')"
+            onclick="window.open('./assets/cert.pdf', '_blank')"
           >
             Certificates
           </button>
@@ -150,36 +143,33 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
           </button>
         </div>
         <div id="socials-container">
-          <!-- Static social icons as per original index.html -->
           <img
             src="./assets/linkedin.png"
             alt="My LinkedIn profile"
             class="icon"
-            onclick="location.href='https://www.linkedin.com/in/benjie-juabot-2a909a299/'"
+            onclick="window.open('https://www.linkedin.com/in/benjie-juabot-2a909a299/', '_blank')"
           />
           <img
             src="./assets/github.png"
             alt="My Github profile"
             class="icon"
-            onclick="location.href='https://github.com/'"
+            onclick="window.open('https://github.com/', '_blank')"
           />
           <img
             src="./assets/facebook.png"
             alt="My Facebook profile"
             class="icon"
-            onclick="location.href='https://www.facebook.com/BJ.Juabot14'"
+            onclick="window.open('https://www.facebook.com/BJ.Juabot14', '_blank')"
           />
         </div>
       </div>
     </section>
 
-    <!-- About Section -->
     <section id="about">
       <p class="section__text__p1">Get To Know More</p>
       <h1 class="title">About Me</h1>
       <div class="section-container">
         <div class="section__pic-container">
-          <!-- Assuming about-pic.png is in assets folder -->
           <img
             src="./assets/about-pic.png"
             alt="Profile picture"
@@ -189,7 +179,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
         <div class="about-details-container">
           <div class="about-containers">
             <div class="details-container">
-              <!-- Assuming experience.png is in assets folder -->
               <img
                 src="./assets/experience.png"
                 alt="Experience icon"
@@ -199,7 +188,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
               <p>2+ years <br />Frontend Development</p>
             </div>
             <div class="details-container">
-              <!-- Assuming education.png is in assets folder -->
               <img
                 src="./assets/education.png"
                 alt="Education icon"
@@ -218,8 +206,7 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
       </div>
     </section>
 
-     <!-- Experience (Skills) Section -->
-    <section id="experience">
+     <section id="experience">
       <p class="section__text__p1">Explore My</p>
       <h1 class="title">Experience</h1>
       <div class="experience-details-container">
@@ -252,8 +239,7 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
                                       />
                                       <div>
                                           <h3><?= htmlspecialchars($skill['name']) ?></h3>
-                                          <!-- Removed the <p> tag for level -->
-                                      </div>
+                                          </div>
                                   </article>
                               <?php endforeach; ?>
                           </div>
@@ -267,7 +253,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
       </div>
     </section>
 
-    <!-- Projects Section -->
     <section id="projects">
       <p class="section__text__p1">Browse My Recent</p>
       <h1 class="title">Projects</h1>
@@ -283,8 +268,7 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
                             alt="<?= htmlspecialchars($project['title']) ?>"
                             class="project-img"
                             onerror="this.onerror=null;this.src='https://placehold.co/400x300/e0e0e0/000000?text=No+Image'"
-                            alt="No image available" <!-- Assuming placeholder.png is a valid placeholder image -->
-                          />
+                            alt="No image available" />
                       <?php else: ?>
                           <img
                             src="https://placehold.co/400x300/e0e0e0/000000?text=No+Image"
@@ -304,14 +288,7 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
                             Live Demo
                           </button>
                       <?php endif; ?>
-                      <!-- You can add a Github button here if your projects table includes a github_link -->
-                      <!-- <button
-                        class="btn btn-color-2 project-btn"
-                        onclick="location.href='https://github.com/'"
-                      >
-                        Github
-                      </button> -->
-                    </div>
+                      </div>
                   </div>
               <?php endforeach; ?>
           <?php else: ?>
@@ -321,7 +298,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
       </div>
     </section>
 
-    <!-- Contact Section -->
     <section id="contact">
       <p class="section__text__p1">Get in Touch</p>
       <h1 class="title">Contact Me</h1>
@@ -375,7 +351,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
       </div>
     </section>
 
-    <!-- Footer -->
     <footer>
       <nav>
         <div class="nav-links-container">
