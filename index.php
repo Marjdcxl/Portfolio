@@ -5,7 +5,6 @@ require 'db.php'; // Include your database connection file
 $conn->query("CREATE TABLE IF NOT EXISTS skills (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    -- level VARCHAR(20) NOT NULL, -- Removed the level column
     category VARCHAR(100) DEFAULT 'General'
 )");
 
@@ -17,8 +16,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS about (
 
 // Automatically create 'projects' table if it doesn't exist (from your original index.php)
 $conn->query("CREATE TABLE IF NOT EXISTS projects (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,\n    title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     image_url VARCHAR(255) DEFAULT NULL,
     link VARCHAR(255) DEFAULT NULL,
@@ -70,7 +68,7 @@ if ($conn->query("SHOW TABLES LIKE 'skills'")->num_rows > 0) {
     }
 }
 
-// Fetch about me content from database
+// Fetch main about me content from database
 $about = "No about info yet.";
 // Ensure 'about' table exists before querying
 if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
@@ -78,6 +76,18 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
     if ($about_result && $about_result->num_rows > 0) {
         $row = $about_result->fetch_assoc();
         $about = $row['content'];
+    }
+}
+
+// NEW: Fetch structured about details from the database
+$about_details = [];
+if ($conn->query("SHOW TABLES LIKE 'about_details'")->num_rows > 0) {
+    // Order by type, then heading, to group similar entries together
+    $details_result = $conn->query("SELECT id, type, heading, description FROM about_details ORDER BY type, heading");
+    if ($details_result && $details_result->num_rows > 0) {
+        while ($row = $details_result->fetch_assoc()) {
+            $about_details[] = $row;
+        }
     }
 }
 ?>
@@ -138,9 +148,10 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
           >
             Certificates
           </button>
-          <button class="btn btn-color-1" onclick="location.href='./#contact'">
+          <!-- Changed to anchor tag to use smooth scroll JS -->
+          <a class="btn btn-color-1" href="#contact">
             Contact Info
-          </button>
+          </a>
         </div>
         <div id="socials-container">
           <img
@@ -177,28 +188,46 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
           />
         </div>
         <div class="about-details-container">
-          <div class="about-containers">
-            <div class="details-container">
-              <img
-                src="./assets/experience.png"
-                alt="Experience icon"
-                class="icon"
-              />
-              <h3>Experience</h3>
-              <p>2+ years <br />Frontend Development</p>
-            </div>
-            <div class="details-container">
-              <img
-                src="./assets/education.png"
-                alt="Education icon"
-                class="icon"
-              />
-              <h3>Education</h3>
-              <p>B.S.CpE. Bachelors Degree<br />M.Sc. Masters Degree</p>
-            </div>
+          <div class="about-containers about-details-grid">
+            <?php if (!empty($about_details)): ?>
+                <?php
+                // Group details by type for better organization
+                $grouped_about_details = [];
+                foreach ($about_details as $detail) {
+                    $grouped_about_details[$detail['type']][] = $detail;
+                }
+
+                // Define icon mapping for common types
+                $detail_icons = [
+                    'Experience' => './assets/experience.png',
+                    'Education' => './assets/education.png',
+                    'Award' => './assets/award.png', // Assuming an award.png exists
+                    'Certification' => './assets/certification.png', // Assuming a certification.png exists
+                    'Volunteer Work' => './assets/volunteer.png', // Assuming a volunteer.png exists
+                    'Other' => './assets/info.png', // Generic info icon
+                ];
+
+                foreach ($grouped_about_details as $type => $details_list): ?>
+                    <div class="details-container about-detail-type-container">
+                        <img
+                            src="<?= htmlspecialchars($detail_icons[$type] ?? './assets/info.png') ?>"
+                            alt="<?= htmlspecialchars($type) ?> icon"
+                            class="icon about-icon"
+                            onerror="this.onerror=null;this.src='./assets/info.png';"
+                        />
+                        <div class="about-detail-entries">
+                            <?php foreach ($details_list as $detail): ?>
+                                <p><strong><?= htmlspecialchars($detail['heading']) ?></strong><br /><?= htmlspecialchars($detail['description']) ?></p>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <p class="no-details-message">No structured About Me details added yet.</p>
+            <?php endif; ?>
           </div>
           <div class="text-container">
-            <p>
+            <p class="main-about-text">
               <?php echo nl2br(htmlspecialchars($about)); ?>
             </p>
           </div>
@@ -374,23 +403,63 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
         icon.classList.toggle("open");
       }
 
-      // Smooth scroll for internal links, now correctly handles href="#"
+      // Smooth scroll for internal links
       document.querySelectorAll('a[href^="#"]').forEach(anchor => {
           anchor.addEventListener('click', function (e) {
+              e.preventDefault(); // Prevent default hash behavior
+
               const href = this.getAttribute('href');
-              if (href === '#') { // If href is just "#", scroll to the very top
-                  e.preventDefault();
+
+              if (href === '#') {
+                  // If href is just "#", scroll to the very top using window.scrollTo
                   window.scrollTo({
                       top: 0,
                       behavior: 'smooth'
                   });
-              } else { // Otherwise, scroll to the specific section
-                  e.preventDefault();
-                  document.querySelector(href).scrollIntoView({
-                      behavior: 'smooth'
-                  });
+                  // Immediately remove hash if at top to prevent refresh issues
+                  // This case doesn't involve waiting for an element scroll
+                  setTimeout(() => { // Small delay to allow the scroll to start
+                      history.replaceState({}, document.title, window.location.pathname);
+                  }, 100);
+              } else {
+                  // Otherwise, scroll to the specific section
+                  const targetElement = document.querySelector(href);
+                  if (targetElement) {
+                      targetElement.scrollIntoView({
+                          behavior: 'smooth'
+                      });
+
+                      // After scrolling, remove the hash from the URL after a small delay
+                      // This prevents the browser from auto-scrolling to the hash on refresh
+                      // The delay allows the smooth scroll animation to complete visually
+                      setTimeout(() => {
+                          history.replaceState({}, document.title, window.location.pathname);
+                      }, 600); // Adjust delay as needed, based on your CSS smooth scroll duration
+                  }
               }
           });
+      });
+
+      // Initial load check: if page loads with a hash, scroll to it but then clear it for subsequent refreshes.
+      window.addEventListener('load', () => {
+          if (window.location.hash) {
+              const hash = window.location.hash;
+              const targetElement = document.querySelector(hash);
+
+              if (targetElement) {
+                  // Scroll instantly if it's an initial load with hash
+                  targetElement.scrollIntoView();
+                  // Clear the hash to prevent it from auto-directing on *next* refresh
+                  setTimeout(() => {
+                      history.replaceState({}, document.title, window.location.pathname);
+                  }, 100); // Short delay to allow browser to register the scroll
+              } else if (hash === '#') { // Handle # in URL on load if it somehow remained
+                   window.scrollTo({ top: 0 });
+                   setTimeout(() => {
+                      history.replaceState({}, document.title, window.location.pathname);
+                  }, 100);
+              }
+          }
       });
     </script>
   </body>
