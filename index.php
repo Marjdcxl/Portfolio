@@ -10,13 +10,15 @@ $conn->query("CREATE TABLE IF NOT EXISTS skills (
 )");
 
 // Automatically create 'about' table if it doesn't exist (from your original index.php)
-$conn->query("CREATE TABLE IF NOT EXISTS about (\n    id INT AUTO_INCREMENT PRIMARY KEY,
+$conn->query("CREATE TABLE IF NOT EXISTS about (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     content TEXT NOT NULL
 )");
 
 // Automatically create 'projects' table if it doesn't exist (from your original index.php)
 $conn->query("CREATE TABLE IF NOT EXISTS projects (
-    id INT AUTO_INCREMENT PRIMARY KEY,\n    title VARCHAR(255) NOT NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     image_url VARCHAR(255) DEFAULT NULL,
     link VARCHAR(255) DEFAULT NULL,
@@ -29,14 +31,6 @@ $conn->query("CREATE TABLE IF NOT EXISTS contacts (
     platform VARCHAR(100) DEFAULT NULL,
     link VARCHAR(255) DEFAULT NULL,
     deleted TINYINT(1) NOT NULL DEFAULT 0
-)");
-
-// NEW: Automatically create 'about_details' table if it doesn't exist
-$conn->query("CREATE TABLE IF NOT EXISTS about_details (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    type VARCHAR(100) NOT NULL,
-    heading VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL
 )");
 
 
@@ -76,7 +70,7 @@ if ($conn->query("SHOW TABLES LIKE 'skills'")->num_rows > 0) {
     }
 }
 
-// Fetch about me content (main text) from database
+// Fetch about me content from database
 $about = "No about info yet.";
 // Ensure 'about' table exists before querying
 if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
@@ -84,17 +78,6 @@ if ($conn->query("SHOW TABLES LIKE 'about'")->num_rows > 0) {
     if ($about_result && $about_result->num_rows > 0) {
         $row = $about_result->fetch_assoc();
         $about = $row['content'];
-    }
-}
-
-// NEW: Fetch structured about details (Experience, Education, etc.)
-$about_details = [];
-if ($conn->query("SHOW TABLES LIKE 'about_details'")->num_rows > 0) {
-    $about_details_result = $conn->query("SELECT type, heading, description FROM about_details ORDER BY type, heading");
-    if ($about_details_result && $about_details_result->num_rows > 0) {
-        while ($row = $about_details_result->fetch_assoc()) {
-            $about_details[] = $row;
-        }
     }
 }
 ?>
@@ -205,43 +188,26 @@ if ($conn->query("SHOW TABLES LIKE 'about_details'")->num_rows > 0) {
         </div>
         <div class="about-details-container">
           <div class="about-containers">
-            <?php if (!empty($about_details)): ?>
-                <?php foreach ($about_details as $detail): ?>
-                    <div class="details-container">
-                        <?php
-                        $icon_src = '';
-                        switch ($detail['type']) {
-                            case 'Experience':
-                                $icon_src = './assets/experience.png';
-                                break;
-                            case 'Education':
-                                $icon_src = './assets/education.png';
-                                break;
-                            case 'Award':
-                                $icon_src = './assets/award.png'; // Assuming you might have an award icon
-                                break;
-                            case 'Certification':
-                                $icon_src = './assets/certificate.png'; // Assuming you might have a certificate icon
-                                break;
-                            case 'Volunteer Work':
-                                $icon_src = './assets/volunteer.png'; // Assuming you might have a volunteer icon
-                                break;
-                            default:
-                                $icon_src = './assets/info.png'; // Generic info icon for 'Other' or unknown types
-                                break;
-                        }
-                        ?>
-                        <img
-                            src="<?= htmlspecialchars($icon_src) ?>"
-                            alt="<?= htmlspecialchars($detail['type']) ?> icon"
-                            class="icon"
-                            onerror="this.onerror=null;this.src='https://placehold.co/24x24/e0e0e0/000000?text=Icon';"
-                        />
-                        <h3><?= htmlspecialchars($detail['heading']) ?></h3>
-                        <p><?= nl2br(htmlspecialchars($detail['description'])) ?></p>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+            <div class="details-container">
+              <!-- Assuming experience.png is in assets folder -->
+              <img
+                src="./assets/experience.png"
+                alt="Experience icon"
+                class="icon"
+              />
+              <h3>Experience</h3>
+              <p>2+ years <br />Frontend Development</p>
+            </div>
+            <div class="details-container">
+              <!-- Assuming education.png is in assets folder -->
+              <img
+                src="./assets/education.png"
+                alt="Education icon"
+                class="icon"
+              />
+              <h3>Education</h3>
+              <p>B.S.CpE. Bachelors Degree<br />M.Sc. Masters Degree</p>
+            </div>
           </div>
           <div class="text-container">
             <p>
