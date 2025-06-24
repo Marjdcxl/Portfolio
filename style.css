@@ -34,8 +34,8 @@ nav,
 }
 
 #desktop-nav {
-  background-color: #e1e1e1; 
-  top: 0; 
+  background-color: #e1e1e1;
+  top: 0;
   width: 100%; /* Full width of the viewport */
   height: 10vh; /* Fixed height for the nav bar */
   position: fixed; /* Changed from absolute to fixed */
@@ -189,7 +189,6 @@ nav {
 
 section {
   padding-top: 4vh;
-  height: 96vh;
   margin: 0 10rem;
   box-sizing: border-box;
   min-height: fit-content;
@@ -215,7 +214,7 @@ section {
   width: 400px;
   margin: 5rem auto;
   border-radius: 2rem;
-  
+
 }
 
 #socials-container .icon {
@@ -271,6 +270,7 @@ section {
 .btn-color-1,
 .btn-color-2 {
   border: rgb(53, 53, 53) 0.1rem solid;
+  text-decoration: none;
 }
 
 .btn-color-1:hover,
@@ -304,28 +304,102 @@ section {
 
 #about {
   position: relative;
-  height: fit-content
+  height: fit-content;
 }
 
 .about-containers {
   gap: 2rem;
   margin-bottom: 2rem;
   margin-top: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Grid layout for about details containers */
+.about-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    width: 100%;
+}
+
+/* Individual details container styling (used for Experience, Education, etc.) */
+.details-container {
+  flex: 1;
+  padding: 1.5rem;
+  border: rgb(53, 53, 53) 0.1rem solid;
+  border-radius: 2rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Keep items centered horizontally within the container */
+  justify-content: flex-start;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Style for the text content within each details container to ensure it fits */
+.details-container p {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    text-align: center; /* Changed to center-align for readability */
+    font-size: 0.95rem;
+    line-height: 1.4;
+    margin-top: 0.5rem;
+    width: 100%;
+    padding: 0 0.5rem;
+}
+
+/* Style for the nested entries within the about details (like "2+ years" & "Frontend Development") */
+.about-detail-entries {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Changed to center-align for overall block of entries */
+    margin-top: 1rem;
+}
+
+.about-detail-entries p {
+    text-align: center; /* Ensure nested paragraph text is center-aligned */
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+    line-height: 1.4;
+    color: rgb(85, 85, 85);
+    padding: 0;
 }
 
 .about-details-container {
   justify-content: center;
   flex-direction: column;
+  display: flex;
+  width: 100%;
 }
 
 .about-details-container .icon {
-    width: 1.5rem; /* Adjust as needed */
-    height: 1.5rem; /* Adjust as needed */
+    width: 2rem;
+    height: 2rem;
+    margin-bottom: 0.5rem;
 }
 
-.about-containers,
-.about-details-container {
-  display: flex;
+/* Specific styling for the main about text container */
+.text-container {
+    padding: 1.5rem;
+    border: rgb(53, 53, 53) 0.1rem solid;
+    border-color: rgb(163, 163, 163);
+    background: rgb(250, 250, 250);
+    border-radius: 2rem;
+    margin-top: 2rem;
+    text-align: justify;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    flex-grow: 1;
+}
+
+.main-about-text {
+    font-size: 1.1rem;
+    color: #333;
 }
 
 .about-pic {
@@ -338,14 +412,6 @@ section {
   bottom: 2.5rem;
     width: 3rem;
     height: 3rem;
-}
-
-.details-container {
-  flex: 1;
-  padding: 1.5rem;
-  border: rgb(53, 53, 53) 0.1rem solid;
-  border-radius: 2rem;
-  text-align: center;
 }
 
 .section-container {
@@ -396,7 +462,7 @@ article {
 
 article .icon {
   cursor: default;
-  width: 2rem; /* Smaller size for checkmarks */
+  width: 2rem;
   height: 2rem;
 }
 
@@ -463,16 +529,16 @@ article .icon {
 
 /* ADD OR MODIFY THESE STYLES FOR THE CONTACT LINKS */
 .contact-info-container a {
-  color: #111111; /* Set the text color to a dark grey/black */
-  text-decoration: none; /* Remove the underline */
-  transition: all 300ms ease; /* Smooth transition for hover effects */
+  color: #111111;
+  text-decoration: none;
+  transition: all 300ms ease;
 }
 
 .contact-info-container a:hover {
-  color: #A7D9F7; /* Lighter blue on hover, matching other nav links */
-  text-decoration: underline; /* Add underline on hover */
-  text-underline-offset: 0.25rem; /* Adjust as needed */
-  text-decoration-color: #A7D9F7; /* Underline color matches hover text */
+  color: #A7D9F7;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+  text-decoration-color: #A7D9F7;
 }
 
 
@@ -488,60 +554,59 @@ article .icon {
 /* FOOTER */
 
 footer {
-  /* Applying similar styles to the desktop nav bar for the footer */
-  background-color: #e1e1e1; /* Dark blue background */
-  height: fit-content; /* Adjust height based on content */
-  padding: 1.5rem 2rem; /* Increased padding for better spacing */
-  display: flex; /* Use flexbox for internal alignment */
-  flex-direction: column; /* Stack children vertically */
-  justify-content: center; /* Center content vertically */
-  align-items: center; /* Center content horizontally */
-  gap: 1rem; /* Space between nav links and copyright */
-  color: #111111; /* Light text color for copyright */
+  background-color: #e1e1e1;
+  height: fit-content;
+  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  color: #111111;
 }
 
 /* Styling for the navigation links within the footer */
 footer nav {
   height: fit-content;
-  margin-bottom: 0; /* Remove default margin */
-  width: 100%; /* Take full width of footer */
-  justify-content: center; /* Center the links */
+  margin-bottom: 0;
+  width: 100%;
+  justify-content: center;
   align-items: center;
 }
 
 footer .nav-links {
-  gap: 2rem; /* Space between footer links */
+  gap: 2rem;
   list-style: none;
-  font-size: 1.25rem; /* Slightly smaller font for footer links */
+  font-size: 1.25rem;
 }
 
 footer .nav-links a {
-  color:#111111; /* Light text color for footer navigation links */
+  color:#111111;
   text-decoration: none;
   text-decoration-color: transparent;
 }
 
 footer .nav-links a:hover {
-  color: #111111; /* Lighter blue on hover */
+  color: #111111;
   text-decoration: underline;
-  text-underline-offset: 0.5rem; /* Smaller underline offset for footer */
+  text-underline-offset: 0.5rem;
   text-decoration-color: #A7D9F7;
 }
 
 footer p {
   text-align: center;
-  margin: 0; /* Remove default margin */
-  font-size: 0.9rem; /* Smaller font for copyright text */
-  color: #3c3c3c; /* Slightly muted light color for copyright */
+  margin: 0;
+  font-size: 0.9rem;
+  color: #3c3c3c;
 }
 
 /* MEDIA QUERIES (from original mediaqueries.css, integrated here) */
 @media screen and (max-width: 1200px) {
   #desktop-nav {
-    display: none; /* Desktop nav is hidden on smaller screens */
+    display: none;
   }
   #hamburger-nav {
-    display: flex; /* Hamburger nav is shown */
+    display: flex;
   }
   #profile,
   .section-container {
@@ -567,7 +632,7 @@ footer p {
   }
 
   footer {
-    margin: 1rem 2%; /* Smaller margin for mobile */
+    margin: 1rem 2%;
     border-radius: 0.75rem;
     padding: 1rem;
   }
@@ -635,10 +700,10 @@ footer p {
   }
 
   footer nav {
-    flex-direction: column; /* Stack links vertically */
+    flex-direction: column;
   }
   footer .nav-links {
-    flex-direction: column; /* Ensure links stack if they wrap */
+    flex-direction: column;
     gap: 0.5rem;
   }
 }
