@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections; // For sorting categories
 import java.util.UUID; // NEW: Added for generating unique filenames for images
+import java.util.Map; // For ImageChangePanel, for settings map
 
 
 /**
@@ -217,6 +218,18 @@ public class PortfolioAdminApp extends JFrame {
     // This is the public web URL that corresponds to the directory above.
     // Example: "http://localhost/your_portfolio_site/assets/project_images/" or "http://yourdomain.com/assets/project_images/"
     public static final String PROJECT_IMAGE_BASE_URL = "http://localhost/your_portfolio_site/assets/project_images/"; // <--- **CHANGE THIS**
+
+    // NEW: Paths for Profile and About images
+    public static final String PROFILE_IMAGE_BASE_DIR = "C:\\xampp\\htdocs\\your_portfolio_site\\assets\\profile\\"; // <--- **CHANGE THIS**
+    public static final String PROFILE_IMAGE_BASE_URL = "http://localhost/your_portfolio_site/assets/profile/"; // <--- **CHANGE THIS**
+
+    public static final String ABOUT_IMAGE_BASE_DIR = "C:\\xampp\\htdocs\\your_portfolio_site\\assets\\about\\"; // <--- **CHANGE THIS**
+    public static final String ABOUT_IMAGE_BASE_URL = "http://localhost/your_portfolio_site\\assets\\about\\"; // <--- **CHANGE THIS**
+
+
+    // Default image paths (relative to web assets/ in index.php)
+    public static final String DEFAULT_PROFILE_IMAGE_PATH = "./assets/profile-pic.png";
+    public static final String DEFAULT_ABOUT_IMAGE_PATH = "./assets/about-pic.png";
 
 
     /**
@@ -414,6 +427,24 @@ public class PortfolioAdminApp extends JFrame {
                          "link VARCHAR(255) DEFAULT NULL," +
                          "deleted TINYINT(1) NOT NULL DEFAULT 0" + // Added deleted column for soft delete
                          ")");
+            
+            // NEW: Create 'site_settings' table for dynamic image paths
+            stmt.execute("CREATE TABLE IF NOT EXISTS site_settings (" +
+                         "id INT AUTO_INCREMENT PRIMARY KEY," +
+                         "setting_name VARCHAR(255) NOT NULL UNIQUE," +
+                         "setting_value TEXT" +
+                         ")");
+
+            // Initialize default image paths if they don't exist in site_settings
+            // Profile Image
+            if (DatabaseManager.getSetting("profile_image_url") == null) {
+                DatabaseManager.saveSetting("profile_image_url", DEFAULT_PROFILE_IMAGE_PATH);
+            }
+            // About Image
+            if (DatabaseManager.getSetting("about_image_url") == null) {
+                DatabaseManager.saveSetting("about_image_url", DEFAULT_ABOUT_IMAGE_PATH);
+            }
+
 
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "Database error during table creation: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -501,6 +532,48 @@ class DatabaseManager {
             e.printStackTrace();
             JOptionPane.showMessageDialog(null, "Authentication error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             return false;
+        }
+    }
+
+    /**
+     * NEW: Retrieves a setting value from the 'site_settings' table.
+     * @param settingName The name of the setting to retrieve.
+     * @return The setting value as a String, or null if not found.
+     */
+    public static String getSetting(String settingName) {
+        String sql = "SELECT setting_value FROM site_settings WHERE setting_name = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, settingName);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("setting_value");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.err.println("Error getting setting '" + settingName + "': " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * NEW: Saves a setting value to the 'site_settings' table.
+     * Inserts if the setting name does not exist, updates if it does.
+     * @param settingName The name of the setting.
+     * @param settingValue The value to save.
+     */
+    public static void saveSetting(String settingName, String settingValue) {
+        String sql = "INSERT INTO site_settings (setting_name, setting_value) VALUES (?, ?) " +
+                     "ON DUPLICATE KEY UPDATE setting_value = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, settingName);
+            pstmt.setString(2, settingValue);
+            pstmt.setString(3, settingValue); // For ON DUPLICATE KEY UPDATE
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.err.println("Error saving setting '" + settingName + "': " + e.getMessage());
         }
     }
 }
@@ -2531,7 +2604,7 @@ class AboutDetailsManagementPanel extends JPanel {
 
         // Description
         gbc.gridx = 0; gbc.gridy = 1; formPanel.add(createStyledLabel("Description:"), gbc); // Description is now at gridY 1
-        gbc.gridx = 1; gbc.gridy = 1; descriptionArea = createStyledTextArea(4, 20);
+        gbc.gridx = 1; gbc.gridy = 1; descriptionArea = createStyledTextArea(4, 20); // Changed to call createStyledTextArea
         JScrollPane descScrollPane = new JScrollPane(descriptionArea);
         descScrollPane.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true));
         formPanel.add(descScrollPane, gbc);
@@ -2599,7 +2672,7 @@ class AboutDetailsManagementPanel extends JPanel {
     }
 
     /** Helper method to create a styled JTextArea. */
-    private JTextArea createStyledTextArea(int rows, int cols) {
+    private JTextArea createStyledTextArea(int rows, int cols) { // Renamed from 'area' to 'createStyledTextArea'
         JTextArea area = new JTextArea(rows, cols);
         area.setLineWrap(true);
         area.setWrapStyleWord(true);
@@ -3305,7 +3378,9 @@ class ContactManagementPanel extends JPanel {
                 JOptionPane.showMessageDialog(this, "Contact permanently deleted successfully!");
                 clearForm();
                 loadContacts(); // Refresh tables
-            } catch (SQLException e) {
+            }
+            // Catch SQLException specifically to provide detailed error messages
+            catch (SQLException e) {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(this, "Error permanently deleting contact: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -3377,9 +3452,13 @@ class ManageOthersPanel extends JPanel {
                 new EmptyBorder(5, 5, 5, 5)
         ));
 
-        // Add blank sub-tabs
-        subTabbedPane.addTab("Sub-tab 1", createBlankPanel("Content for Sub-tab 1 will go here."));
-        subTabbedPane.addTab("Sub-tab 2", createBlankPanel("Content for Sub-tab 2 will go here."));
+        // Add "Change Picture" sub-tab
+        ImageChangePanel imageChangePanel = new ImageChangePanel(parent);
+        imageChangePanel.setOpaque(false);
+        subTabbedPane.addTab("Change Picture", imageChangePanel);
+
+        // Add blank sub-tab 2 (renamed from "Sub-tab 2")
+        subTabbedPane.addTab("Other Settings", createBlankPanel("Content for other settings will go here."));
 
         add(subTabbedPane, BorderLayout.CENTER);
     }
@@ -3406,5 +3485,326 @@ class ManageOthersPanel extends JPanel {
         label.setForeground(PortfolioAdminApp.NEUTRAL_GREY);
         panel.add(label);
         return panel;
+    }
+}
+
+/**
+ * NEW: Panel for managing profile and about section images.
+ * Allows choosing a new image and saving its path to the database.
+ */
+class ImageChangePanel extends JPanel {
+    private PortfolioAdminApp parentFrame;
+
+    private JLabel profileImagePreviewLabel;
+    private File selectedProfileImageFile;
+
+    private JLabel aboutImagePreviewLabel;
+    private File selectedAboutImageFile;
+
+    /**
+     * Constructor for ImageChangePanel.
+     * @param parent The main application frame.
+     */
+    public ImageChangePanel(PortfolioAdminApp parent) {
+        this.parentFrame = parent;
+        setLayout(new GridBagLayout());
+        setOpaque(false);
+        setBorder(new EmptyBorder(25, 25, 25, 25));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(15, 15, 15, 15);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.anchor = GridBagConstraints.NORTHWEST; // Align components to top-left
+
+        // --- Profile Picture Section ---
+        JPanel profilePanel = createStyledTitledPanel("Change Profile Picture", new GridBagLayout());
+        GridBagConstraints pGbc = new GridBagConstraints();
+        pGbc.insets = new Insets(10, 10, 10, 10);
+        pGbc.fill = GridBagConstraints.HORIZONTAL;
+
+        pGbc.gridx = 0; pGbc.gridy = 0; profilePanel.add(createStyledLabel("Current Profile Image:"), pGbc);
+        pGbc.gridx = 1; pGbc.gridy = 0; pGbc.weightx = 1.0;
+        profileImagePreviewLabel = new JLabel("No Image", SwingConstants.CENTER);
+        profileImagePreviewLabel.setPreferredSize(new Dimension(200, 200)); // Larger preview
+        profileImagePreviewLabel.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true));
+        profileImagePreviewLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        profileImagePreviewLabel.setVerticalAlignment(SwingConstants.CENTER);
+        profileImagePreviewLabel.setFont(PortfolioAdminApp.FONT_SMALL_ITALIC);
+        profileImagePreviewLabel.setForeground(Color.GRAY);
+        profilePanel.add(profileImagePreviewLabel, pGbc);
+
+        pGbc.gridx = 0; pGbc.gridy = 1; pGbc.gridwidth = 2;
+        JButton chooseProfileImageButton = createStyledButton(
+            "Choose New Profile Image",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END
+        );
+        chooseProfileImageButton.addActionListener(e -> chooseImage(true));
+        profilePanel.add(chooseProfileImageButton, pGbc);
+
+        pGbc.gridx = 0; pGbc.gridy = 2; pGbc.gridwidth = 2;
+        JButton saveProfileImageButton = createStyledButton(
+            "Save Profile Image",
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
+        saveProfileImageButton.addActionListener(e -> saveImage(true));
+        profilePanel.add(saveProfileImageButton, pGbc);
+
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0.5; gbc.weighty = 0.5; // Give it space
+        add(profilePanel, gbc);
+
+        // --- About Section Picture Section ---
+        JPanel aboutPanel = createStyledTitledPanel("Change About Section Picture", new GridBagLayout());
+        GridBagConstraints aGbc = new GridBagConstraints();
+        aGbc.insets = new Insets(10, 10, 10, 10);
+        aGbc.fill = GridBagConstraints.HORIZONTAL;
+
+        aGbc.gridx = 0; aGbc.gridy = 0; aboutPanel.add(createStyledLabel("Current About Image:"), aGbc);
+        aGbc.gridx = 1; aGbc.gridy = 0; aGbc.weightx = 1.0;
+        aboutImagePreviewLabel = new JLabel("No Image", SwingConstants.CENTER);
+        aboutImagePreviewLabel.setPreferredSize(new Dimension(200, 200)); // Larger preview
+        aboutImagePreviewLabel.setBorder(BorderFactory.createLineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true));
+        aboutImagePreviewLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        aboutImagePreviewLabel.setVerticalAlignment(SwingConstants.CENTER);
+        aboutImagePreviewLabel.setFont(PortfolioAdminApp.FONT_SMALL_ITALIC);
+        aboutImagePreviewLabel.setForeground(Color.GRAY);
+        aboutPanel.add(aboutImagePreviewLabel, aGbc);
+
+        aGbc.gridx = 0; aGbc.gridy = 1; aGbc.gridwidth = 2;
+        JButton chooseAboutImageButton = createStyledButton(
+            "Choose New About Image",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END
+        );
+        chooseAboutImageButton.addActionListener(e -> chooseImage(false));
+        aboutPanel.add(chooseAboutImageButton, aGbc);
+
+        aGbc.gridx = 0; aGbc.gridy = 2; aGbc.gridwidth = 2;
+        JButton saveAboutImageButton = createStyledButton(
+            "Save About Image",
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_END,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_START,
+            PortfolioAdminApp.GRADIENT_PRIMARY_BLUE_HOVER_END
+        );
+        saveAboutImageButton.addActionListener(e -> saveImage(false));
+        aboutPanel.add(saveAboutImageButton, aGbc);
+        
+        gbc.gridx = 1; gbc.gridy = 0; gbc.weightx = 0.5; gbc.weighty = 0.5; // Give it space
+        add(aboutPanel, gbc);
+
+        loadCurrentImages(); // Load current images on panel initialization
+    }
+
+    /** Helper method to create a styled JTextField. */
+    private JTextField createStyledTextField() {
+        JTextField field = new JTextField(25);
+        field.setFont(PortfolioAdminApp.FONT_BODY);
+        field.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
+        return field;
+    }
+
+    /** Helper method to create a styled JTextArea. */
+    private JTextArea createStyledTextArea(int rows, int cols) {
+        JTextArea area = new JTextArea(rows, cols);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        area.setFont(PortfolioAdminApp.FONT_BODY);
+        area.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
+        return area;
+    }
+
+    /** Helper method to create a styled GradientButton. */
+    private GradientButton createStyledButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd) {
+        return new GradientButton(text, start, end, hoverStart, hoverEnd);
+    }
+    
+    /** Helper method to create a styled JLabel. */
+    private JLabel createStyledLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(PortfolioAdminApp.FONT_BODY);
+        label.setForeground(PortfolioAdminApp.TEXT_DARK);
+        return label;
+    }
+
+    /** Helper method to create a styled Titled Panel. */
+    private JPanel createStyledTitledPanel(String title, LayoutManager layout) {
+        JPanel panel = new JPanel(layout);
+        panel.setBorder(BorderFactory.createTitledBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                title,
+                TitledBorder.LEFT, TitledBorder.TOP,
+                PortfolioAdminApp.FONT_HEADER,
+                PortfolioAdminApp.TEXT_DARK
+        ));
+        panel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        panel.putClientProperty("JComponent.roundRect", true);
+        return panel;
+    }
+
+    /**
+     * Loads the current profile and about images from the database and displays them.
+     */
+    private void loadCurrentImages() {
+        String profileImageUrl = DatabaseManager.getSetting("profile_image_url");
+        if (profileImageUrl == null || profileImageUrl.isEmpty()) {
+            profileImageUrl = PortfolioAdminApp.DEFAULT_PROFILE_IMAGE_PATH; // Fallback to default
+        }
+        displayImagePreview(profileImagePreviewLabel, profileImageUrl);
+
+        String aboutImageUrl = DatabaseManager.getSetting("about_image_url");
+        if (aboutImageUrl == null || aboutImageUrl.isEmpty()) {
+            aboutImageUrl = PortfolioAdminApp.DEFAULT_ABOUT_IMAGE_PATH; // Fallback to default
+        }
+        displayImagePreview(aboutImagePreviewLabel, aboutImageUrl);
+    }
+
+    /**
+     * Opens a file chooser to select an image.
+     * @param isProfile true if selecting for profile, false for about section.
+     */
+    private void chooseImage(boolean isProfile) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Choose an Image");
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Image files", "jpg", "jpeg", "png", "gif"));
+        int returnValue = fileChooser.showOpenDialog(this);
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            try {
+                BufferedImage originalImage = ImageIO.read(selectedFile);
+                if (originalImage != null) {
+                    if (isProfile) {
+                        selectedProfileImageFile = selectedFile;
+                        displayImagePreview(profileImagePreviewLabel, originalImage);
+                    } else {
+                        selectedAboutImageFile = selectedFile;
+                        displayImagePreview(aboutImagePreviewLabel, originalImage);
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this, "Could not read image file.", "File Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error loading image: " + e.getMessage(), "Image Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    /**
+     * Saves the selected image to the server and updates its URL in the database.
+     * @param isProfile true if saving for profile, false for about section.
+     */
+    private void saveImage(boolean isProfile) {
+        File imageFile = isProfile ? selectedProfileImageFile : selectedAboutImageFile;
+        String baseDir = isProfile ? PortfolioAdminApp.PROFILE_IMAGE_BASE_DIR : PortfolioAdminApp.ABOUT_IMAGE_BASE_DIR;
+        String baseUrl = isProfile ? PortfolioAdminApp.PROFILE_IMAGE_BASE_URL : PortfolioAdminApp.ABOUT_IMAGE_BASE_URL;
+        String settingName = isProfile ? "profile_image_url" : "about_image_url";
+        JLabel previewLabel = isProfile ? profileImagePreviewLabel : aboutImagePreviewLabel;
+
+        if (imageFile == null || !imageFile.exists()) {
+            JOptionPane.showMessageDialog(this, "No new image selected to save.", "Save Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try {
+            String originalFileName = imageFile.getName();
+            String fileExtension = "";
+            int dotIndex = originalFileName.lastIndexOf('.');
+            if (dotIndex > 0) {
+                fileExtension = originalFileName.substring(dotIndex + 1);
+            }
+            // Generate a unique filename using UUID
+            String uniqueFileName = UUID.randomUUID().toString() + (fileExtension.isEmpty() ? "" : "." + fileExtension);
+
+            File destinationDirectory = new File(baseDir);
+            if (!destinationDirectory.exists()) {
+                destinationDirectory.mkdirs(); // Create directories if they don't exist
+            }
+            File destinationFile = new File(destinationDirectory, uniqueFileName);
+
+            BufferedImage imageToSave = ImageIO.read(imageFile);
+            ImageIO.write(imageToSave, fileExtension, destinationFile);
+
+            String newImageUrl = baseUrl + uniqueFileName;
+            DatabaseManager.saveSetting(settingName, newImageUrl);
+
+            JOptionPane.showMessageDialog(this, "Image saved and path updated successfully!\nNew URL: " + newImageUrl, "Success", JOptionPane.INFORMATION_MESSAGE);
+            
+            // Clear the selected file reference after successful save
+            if (isProfile) {
+                selectedProfileImageFile = null;
+            } else {
+                selectedAboutImageFile = null;
+            }
+            // Refresh the preview with the newly saved image (from its URL)
+            displayImagePreview(previewLabel, newImageUrl);
+
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error saving image to server: " + ex.getMessage(), "Save Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Displays a scaled image preview in the given JLabel.
+     * Overloaded to handle both File and URL inputs.
+     * @param label The JLabel to display the image in.
+     * @param imageObject Either a BufferedImage or a String (URL).
+     */
+    private void displayImagePreview(JLabel label, Object imageObject) {
+        BufferedImage image = null;
+
+        if (imageObject instanceof BufferedImage) {
+            image = (BufferedImage) imageObject;
+        } else if (imageObject instanceof String) {
+            String imageUrl = (String) imageObject;
+            try {
+                if (imageUrl != null && !imageUrl.isEmpty() && !imageUrl.startsWith("./assets/")) { // Don't try to read local assets via URL
+                     image = ImageIO.read(new java.net.URL(imageUrl));
+                } else {
+                    // Handle default assets which are local to the JAR/project structure
+                    // Construct a path that works with ClassLoader for JAR-based execution
+                    String resourcePath = imageUrl.startsWith("./") ? imageUrl.substring(1) : imageUrl; // remove leading ./
+                    resourcePath = resourcePath.replace("\\", "/"); // ensure forward slashes for resources
+                    java.net.URL defaultImageUrl = getClass().getResource(resourcePath);
+                    if (defaultImageUrl != null) {
+                        image = ImageIO.read(defaultImageUrl);
+                    } else {
+                        System.err.println("Could not find local resource: " + resourcePath);
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                label.setIcon(null);
+                label.setText("Error loading image from URL/Resource");
+                return;
+            }
+        }
+
+        if (image == null) {
+            label.setIcon(null);
+            label.setText("No Image");
+            return;
+        }
+
+        int labelWidth = label.getWidth() > 0 ? label.getWidth() : 200; // Use current size or default
+        int labelHeight = label.getHeight() > 0 ? label.getHeight() : 200;
+
+        Image scaledImage = image.getScaledInstance(labelWidth, labelHeight, Image.SCALE_SMOOTH);
+        label.setIcon(new ImageIcon(scaledImage));
+        label.setText(""); // Clear text when image is present
     }
 }
