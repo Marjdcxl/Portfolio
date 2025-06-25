@@ -320,6 +320,16 @@ public class PortfolioAdminApp extends JFrame {
     }
 
     /**
+     * Switches to the Manage Others panel.
+     */
+    public void showManageOthers() {
+        ManageOthersPanel manageOthersPanel = new ManageOthersPanel(this);
+        manageOthersPanel.setOpaque(false); // Make manageOthersPanel transparent
+        mainContentPanel.add(manageOthersPanel, "ManageOthers");
+        mainCardLayout.show(mainContentPanel, "ManageOthers");
+    }
+
+    /**
      * Switches back to the Login panel (for logout).
      */
     public void showLoginPanel() {
@@ -902,6 +912,12 @@ class AdminDashboardPanel extends JPanel {
         JButton contactsButton = createDashboardButton("Manage Contacts", e -> parentFrame.showContactManagement());
         btnGbc.gridy = 3;
         buttonColumnPanel.add(contactsButton, btnGbc);
+        
+        // NEW: Manage Others Button
+        JButton manageOthersButton = createDashboardButton("Manage Others", e -> parentFrame.showManageOthers());
+        btnGbc.gridy = 4; // Next row for the new button
+        buttonColumnPanel.add(manageOthersButton, btnGbc);
+
 
         // Add the button container to the main dashboard panel, centered horizontally and vertically
         gbc.gridx = 0;
@@ -1713,9 +1729,10 @@ class ExperienceManagementPanel extends JPanel {
                 return false;
             }
         };
-        JTable table = new JTable(model);
+        // Declare and initialize 'table' before using it
+        JTable table = new JTable(model); 
         tableModels.put(category, model);
-        tables.put(category, table);
+        tables.put(category, table); // Now 'table' is defined
         selectedExperienceIds.put(category, -1); // Initialize selected ID for this category
 
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -3310,5 +3327,84 @@ class ContactManagementPanel extends JPanel {
         softDeleteButton.setEnabled(false);
         restoreButton.setEnabled(false);
         hardDeleteButton.setEnabled(false); // Disable hard delete by default until a contact is selected
+    }
+}
+
+/**
+ * NEW: Panel for managing "Others" section with two blank sub-tabs.
+ * This will serve as a placeholder for future functionality.
+ */
+class ManageOthersPanel extends JPanel {
+    private PortfolioAdminApp parentFrame;
+    private JTabbedPane subTabbedPane;
+
+    /**
+     * Constructor for ManageOthersPanel.
+     * @param parent The main application frame.
+     */
+    public ManageOthersPanel(PortfolioAdminApp parent) {
+        this.parentFrame = parent;
+        setLayout(new BorderLayout(20, 20));
+        setOpaque(false); // Make transparent to show background gradient
+        setBorder(new EmptyBorder(25, 25, 25, 25));
+
+        // --- North Panel: Title and Back Button ---
+        JPanel northPanel = new JPanel(new BorderLayout());
+        northPanel.setOpaque(false);
+        JLabel titleLabel = new JLabel("Manage Others", SwingConstants.CENTER);
+        titleLabel.setFont(PortfolioAdminApp.FONT_TITLE);
+        titleLabel.setForeground(PortfolioAdminApp.TEXT_DARK);
+        northPanel.add(titleLabel, BorderLayout.CENTER);
+
+        JButton backButton = createStyledBackButton(
+            "⬅ Back to Dashboard",
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_END,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_START,
+            PortfolioAdminApp.GRADIENT_NEUTRAL_GREY_HOVER_END,
+            e -> parentFrame.showAdminDashboard()
+        );
+        northPanel.add(backButton, BorderLayout.WEST);
+        add(northPanel, BorderLayout.NORTH);
+
+        // --- Center Panel: Sub-Tabbed Pane ---
+        subTabbedPane = new JTabbedPane();
+        subTabbedPane.setFont(PortfolioAdminApp.FONT_HEADER);
+        subTabbedPane.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        subTabbedPane.setForeground(PortfolioAdminApp.TEXT_DARK);
+        subTabbedPane.setBorder(BorderFactory.createCompoundBorder(
+                new LineBorder(PortfolioAdminApp.BORDER_COLOR, 1, true),
+                new EmptyBorder(5, 5, 5, 5)
+        ));
+
+        // Add blank sub-tabs
+        subTabbedPane.addTab("Sub-tab 1", createBlankPanel("Content for Sub-tab 1 will go here."));
+        subTabbedPane.addTab("Sub-tab 2", createBlankPanel("Content for Sub-tab 2 will go here."));
+
+        add(subTabbedPane, BorderLayout.CENTER);
+    }
+
+    /** Helper method to create a styled back button with a subtle raised effect. */
+    private GradientButton createStyledBackButton(String text, Color start, Color end, Color hoverStart, Color hoverEnd, ActionListener listener) {
+        GradientButton button = new GradientButton(text, start, end, hoverStart, hoverEnd);
+        button.setFont(PortfolioAdminApp.FONT_BUTTON);
+        button.setBorder(BorderFactory.createCompoundBorder(
+                new SoftBevelBorder(SoftBevelBorder.RAISED, new Color(220, 220, 220, 80), new Color(80, 80, 80, 80)),
+                new EmptyBorder(8, 15, 8, 15)
+        ));
+        button.addActionListener(listener);
+        return button;
+    }
+
+    /** Helper method to create a blank panel with centered text. */
+    private JPanel createBlankPanel(String message) {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(PortfolioAdminApp.BACKGROUND_PANEL);
+        panel.setBorder(new EmptyBorder(50, 50, 50, 50));
+        JLabel label = new JLabel(message, SwingConstants.CENTER);
+        label.setFont(PortfolioAdminApp.FONT_SUBTITLE);
+        label.setForeground(PortfolioAdminApp.NEUTRAL_GREY);
+        panel.add(label);
+        return panel;
     }
 }
