@@ -16,7 +16,8 @@ $conn->query("CREATE TABLE IF NOT EXISTS about (
 
 // Automatically create 'projects' table if it doesn't exist (from your original index.php)
 $conn->query("CREATE TABLE IF NOT EXISTS projects (
-    id INT AUTO_INCREMENT PRIMARY KEY,\n    title VARCHAR(255) NOT NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     image_url VARCHAR(255) DEFAULT NULL,
     link VARCHAR(255) DEFAULT NULL,
@@ -29,6 +30,14 @@ $conn->query("CREATE TABLE IF NOT EXISTS contacts (
     platform VARCHAR(100) DEFAULT NULL,
     link VARCHAR(255) DEFAULT NULL,
     deleted TINYINT(1) NOT NULL DEFAULT 0
+)");
+
+// NEW: Automatically create 'site_settings' table if it doesn't exist
+// This table will store global site settings like image URLs
+$conn->query("CREATE TABLE IF NOT EXISTS site_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_name VARCHAR(255) NOT NULL UNIQUE,
+    setting_value TEXT
 )");
 
 
@@ -90,6 +99,25 @@ if ($conn->query("SHOW TABLES LIKE 'about_details'")->num_rows > 0) {
         }
     }
 }
+
+// NEW: Fetch profile and about image URLs from site_settings table
+// Initialize with default fallback paths
+$profile_image_url = './assets/profile-pic.png';
+$about_image_url = './assets/about-pic.png';
+
+// Check if site_settings table exists before querying
+if ($conn->query("SHOW TABLES LIKE 'site_settings'")->num_rows > 0) {
+    $settings_result = $conn->query("SELECT setting_name, setting_value FROM site_settings WHERE setting_name IN ('profile_image_url', 'about_image_url')");
+    if ($settings_result && $settings_result->num_rows > 0) {
+        while ($row = $settings_result->fetch_assoc()) {
+            if ($row['setting_name'] === 'profile_image_url' && !empty($row['setting_value'])) {
+                $profile_image_url = $row['setting_value'];
+            } elseif ($row['setting_name'] === 'about_image_url' && !empty($row['setting_value'])) {
+                $about_image_url = $row['setting_value'];
+            }
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -135,7 +163,8 @@ if ($conn->query("SHOW TABLES LIKE 'about_details'")->num_rows > 0) {
 
     <section id="profile">
       <div class="section__pic-container">
-        <img src="./assets/profile-pic.png" alt="John Doe profile picture" />
+        <!-- Updated: Use dynamic profile image URL fetched from the database -->
+        <img src="<?php echo htmlspecialchars($profile_image_url); ?>" alt="Benjie Juabot profile picture" />
       </div>
       <div class="section__text">
         <p class="section__text__p1">Hello, I'm</p>
@@ -181,8 +210,9 @@ if ($conn->query("SHOW TABLES LIKE 'about_details'")->num_rows > 0) {
       <h1 class="title">About Me</h1>
       <div class="section-container">
         <div class="section__pic-container">
+          <!-- Updated: Use dynamic about image URL fetched from the database -->
           <img
-            src="./assets/about-pic.png"
+            src="<?php echo htmlspecialchars($about_image_url); ?>"
             alt="Profile picture"
             class="about-pic"
           />
